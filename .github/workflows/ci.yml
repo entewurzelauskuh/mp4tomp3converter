@@ -1,0 +1,85 @@
+name: CI
+
+# Mirrors the local gate (docs/TESTING.md):
+#   * `check`  = spotlessCheck + lint (warningsAsErrors) + JVM unit tests + the assertNo*Internet
+#                privacy invariant. NDK-free and emulator-free, so it runs on a plain runner.
+#   * emulator = the instrumented suite on API 31 (mandatory, primary target) and 34.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch/PR supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Static checks & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      # spotlessCheck + lint + 43 unit tests + assertNo{Debug,Release}Internet. No NDK needed.
+      - name: ./gradlew check
+        run: ./gradlew --no-daemon check
+
+  instrumented:
+    name: Instrumented tests (API ${{ matrix.api-level }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # API 31 matches the primary target hardware and is mandatory before release
+        # (spec §9.3); 34 guards the newer FGS / storage behaviour.
+        api-level: [31, 34]
+    env:
+      # Keep in lockstep with app/build.gradle.kts: `ndkVersion` and `cmake { version }`.
+      # These are bleeding-edge (NDK r30-beta1); if a runner can no longer fetch them, bump the
+      # pins deliberately in the build rather than freezing stale copies here.
+      NDK_VERSION: "30.0.14904198"
+      CMAKE_VERSION: "4.1.2"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Install pinned NDK & CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" >/dev/null
+      - name: Enable KVM (emulator hardware acceleration)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # Build only the x86_64 native libs — that's the emulator ABI, so it skips the arm64-v8a
+      # and armeabi-v7a CMake builds that only matter for real-device release APKs.
+      - name: connectedDebugAndroidTest on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: ./gradlew --no-daemon connectedDebugAndroidTest -Pabi=x86_64

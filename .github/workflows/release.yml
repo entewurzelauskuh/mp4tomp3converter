@@ -1,0 +1,51 @@
+name: Release
+
+# On a v* tag push: build the release APK and attach it to a GitHub Release.
+# The APK is currently DEBUG-SIGNED (docs/RELEASING.md) — real keystore signing is a follow-up,
+# so the asset name says so plainly.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the Release and upload the APK asset
+
+jobs:
+  release:
+    name: Build & publish release APK
+    runs-on: ubuntu-latest
+    env:
+      # Keep in lockstep with app/build.gradle.kts (see the CI workflow's note on these pins).
+      NDK_VERSION: "30.0.14904198"
+      CMAKE_VERSION: "4.1.2"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Install pinned NDK & CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" >/dev/null
+      - name: Assemble release APK (all ABIs)
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Stage APK under a versioned, debug-signed name
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk \
+             "mp4tomp3converter-${GITHUB_REF_NAME}-debug-signed.apk"
+      - name: Publish to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          asset="mp4tomp3converter-${GITHUB_REF_NAME}-debug-signed.apk"
+          notes="Debug-signed, R8-shrunk release APK (~3 MB). Requires Android 12 (API 31)+.
+          Fully offline — the app does not request the INTERNET permission. See docs/RELEASING.md."
+          # Create the Release if it doesn't exist yet; otherwise just (re)upload the asset.
+          gh release create "${GITHUB_REF_NAME}" "${asset}" \
+            --title "${GITHUB_REF_NAME}" --notes "${notes}" \
+          || gh release upload "${GITHUB_REF_NAME}" "${asset}" --clobber
