@@ -1,5 +1,10 @@
 # MP4 to MP3 Converter
 
+[![CI](https://github.com/entewurzelauskuh/mp4tomp3converter/actions/workflows/ci.yml/badge.svg)](https://github.com/entewurzelauskuh/mp4tomp3converter/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/entewurzelauskuh/mp4tomp3converter?sort=semver)](https://github.com/entewurzelauskuh/mp4tomp3converter/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Android 12+](https://img.shields.io/badge/Android-12%2B%20(API%2031)-3ddc84?logo=android&logoColor=white)
+
 A small, free, **offline** Android app that extracts the audio track from a local `.mp4`
 video and saves it as an `.mp3`. It does one thing well — MP4 in → MP3 out — and nothing else.
 
@@ -41,8 +46,9 @@ No storage permissions are needed — output uses `MediaStore` and the Storage A
 
 ## Install
 
-Download the APK from GitHub Releases and install it (you may need to allow installs from your
-browser/file manager). Or build it yourself (below). Not on the Play Store.
+Download the APK from the [latest GitHub Release](https://github.com/entewurzelauskuh/mp4tomp3converter/releases/latest)
+and install it (you may need to allow installs from your browser/file manager). Each `v*` tag is
+built and its APK attached automatically by CI. Or build it yourself (below). Not on the Play Store.
 
 - **APK size:** ~3 MB (release, R8-shrunk).
 - **Requires:** Android 12 (API 31) or newer.
@@ -67,6 +73,10 @@ Requirements: JDK 21, the Android SDK (`compileSdk`/`targetSdk` 36, `minSdk` 31)
 for the native LAME build (see [`gradle/libs.versions.toml`](gradle/libs.versions.toml) and
 `app/build.gradle.kts` for exact pinned versions). See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
 the test commands and [`docs/TESTING.md`](docs/TESTING.md) for the emulator setup.
+
+**CI:** every push and pull request runs the static gate (`./gradlew check` — Spotless, lint,
+unit tests, and the no-`INTERNET` check) plus the instrumented suite on API 31 and 34 emulators;
+see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## How it works (the short version)
 
