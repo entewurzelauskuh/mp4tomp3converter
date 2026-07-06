@@ -4,26 +4,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current repository state
 
-This project is **pre-scaffold**. There is no Gradle project, no source code, and no build yet — only:
+**All phases (0–9) are complete.** The full gate is green from a clean checkout:
+`./gradlew test connectedDebugAndroidTest lint spotlessCheck assembleRelease` — 42 JVM unit
+tests + 13 instrumented tests (API 31 emulator). The R8-shrunk, debug-signed release APK is
+~3 MB and installs/launches. `MP4toMP3converter-SPEC.md` remains the **single source of truth**;
+`docs/DECISIONS.md` records the resolved D1–D5. The physical-device manual checklist
+(`docs/TESTING.md`, spec §9.4) is the human's to run.
 
-- `MP4toMP3converter-SPEC.md` — the **single source of truth**. Read it fully before writing any code.
-- `README.md` (stub), `LICENSE` (MIT), `.gitignore` (Android/Gradle-ready), `.idea/` (IntelliJ, JDK 21).
+Phase 1 froze these (in `app/src/main/java/io/github/entewurzelauskuh/mp4tomp3/`): `jobs/`
+(`ConversionJob`, `JobState`, `FailureReason`, `JobRepository`), `engine/` (`AudioConverter`,
+`ConverterResult`, `ProgressThrottler`), `output/` (`OutputSink`, `OpenOutput`, `OutputHandle`,
+`FileNaming`), `settings/` (`SettingsRepository`, `OutputTarget`, `OutputTargetSerialization`,
+`DataStoreSettingsRepository`, `InMemorySettingsRepository`). **Do not change the §6.2 contract
+shapes** — contract changes return to the orchestrator.
 
-Do not treat the build/test commands below as runnable until Phase 0 scaffolding exists.
+**Pinned toolchain (2026-07-06, latest stable at scaffold time — see `gradle/libs.versions.toml`):**
+Gradle **9.5.0** (wrapper) · AGP **9.1.1** · Kotlin **2.3.21** · Compose BOM **2026.06.00** ·
+Spotless **8.4.0**; build host JDK **21** (Temurin). `compileSdk`/`targetSdk` **36**, `minSdk` **31**.
+
+> **AGP 9 has built-in Kotlin.** Do **not** apply `org.jetbrains.kotlin.android` (it errors).
+> Kotlin comes from AGP; the root `build.gradle.kts` bumps AGP's built-in KGP to the pinned
+> Kotlin via a `buildscript` classpath, and only the Compose compiler plugin is applied
+> explicitly (its version must match Kotlin). Configure Kotlin via the nested
+> `android { kotlin { compilerOptions { … } } }` DSL.
 
 ## What this app is
 
 A small, free, offline Android app that extracts the audio track from a local `.mp4` and writes it as `.mp3`. Spiritual successor to `brarcher/video-transcoder`, deliberately narrower. Single `:app` module, Kotlin + coroutines/Flow, lightweight MVVM, no DI framework, in-memory job queue.
 
-## Before writing code: resolve the Decision Points
+## Decision Points — all resolved (2026-07-06, see `docs/DECISIONS.md`)
 
-`MP4toMP3converter-SPEC.md` §3 defines **D1–D5**. **D1 and D4 are resolved (2026-07-06, see `docs/DECISIONS.md`); D2, D3, D5 are still open** — present those to the user and record answers before Phase 0. Do **not** silently pick defaults.
+`MP4toMP3converter-SPEC.md` §3 defines **D1–D5**. All five are now resolved and fixed:
 
-**Resolved:**
 - **D1 — engine → Option A (LAME).** `MediaExtractor`+`MediaCodec` decode → **LAME** encode via NDK/JNI. LAME must be built as a **separate, dynamically linked shared library (`liblame.so`)** — never statically linked into app code. This is what keeps it compatible with the MIT app license (see D4). Option B (FFmpeg) is declined.
+- **D2 — UI toolkit → Jetpack Compose + Material 3.**
+- **D3 — `minSdk` → 31 (Android 12).** Stricter than the spec's recommended 29, chosen to match the primary target hardware and simplify the storage/FGS matrix. `targetSdk` is still the latest stable (36). FGS typing still needs the API 31–34 (`DATA_SYNC`) vs ≥35 (`MEDIA_PROCESSING`) split; `POST_NOTIFICATIONS` still applies (API ≥33).
 - **D4 — license → MIT for the app's own code.** The repo's existing MIT `LICENSE` (`Copyright (c) 2026 entewurzelauskuh`) stands; the spec's GPL-3.0 suggestion is declined. LAME's LGPL is satisfied by the dynamic linking above **plus** its LGPL notice in `THIRD_PARTY_LICENSES.md`.
-
-**Still open:** **D2** UI toolkit (Compose+M3 recommended), **D3** `minSdk` (29 recommended), **D5** `applicationId` (likely `io.github.entewurzelauskuh.mp4tomp3` from the license handle — confirm the GitHub handle first).
+- **D5 — `applicationId`/namespace → `io.github.entewurzelauskuh.mp4tomp3`**, repo `MP4toMP3converter`.
 
 ## Two hard technical constraints (do not "simplify" around these)
 
@@ -48,9 +65,10 @@ Rejected approaches (do not revive): Media3 Transformer as the engine; executing
 
 The core types and interfaces are specified verbatim in `MP4toMP3converter-SPEC.md` §6.2 (`ConversionJob`, `JobState`, `AudioConverter`, `OutputSink`, `JobRepository`). Freeze these in Phase 1. Sub-agents working Phases 2–5 must **not** change them — contract changes return to the orchestrator.
 
-## Commands (available only after Phase 0 scaffolding)
+## Commands
 
-Build host is **macOS**. Everything must build from a fresh clone via the Gradle wrapper with no machine-local config beyond `local.properties` (SDK path, git-ignored).
+Build host is **macOS**. Everything builds from a fresh clone via the Gradle wrapper (`./gradlew`)
+with no machine-local config beyond `local.properties` (SDK path, git-ignored).
 
 ```sh
 # Finish any task with this before committing (spec convention):
