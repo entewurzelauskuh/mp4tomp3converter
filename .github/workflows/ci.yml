@@ -1,8 +1,9 @@
 name: CI
 
 # Mirrors the local gate (docs/TESTING.md):
-#   * `check`  = spotlessCheck + lint (warningsAsErrors) + JVM unit tests + the assertNo*Internet
-#                privacy invariant. NDK-free and emulator-free, so it runs on a plain runner.
+#   * check    = spotlessCheck + lint (warningsAsErrors) + JVM unit tests + the assertNo*Internet
+#                privacy invariant. Runs no native task, but AGP resolves `ndkVersion` at
+#                configuration time, so the NDK must still be installed.
 #   * emulator = the instrumented suite on API 31 (mandatory, primary target) and 34.
 on:
   push:
@@ -31,7 +32,11 @@ jobs:
           java-version: "21"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-      # spotlessCheck + lint + 43 unit tests + assertNo{Debug,Release}Internet. No NDK needed.
+      # Needed even though `check` builds no .so: AGP validates the pinned NDK during
+      # configuration of the :app module (externalNativeBuild is declared).
+      - name: Install pinned NDK & CMake
+        uses: ./.github/actions/install-ndk
+      # spotlessCheck + lint + 43 unit tests + assertNo{Debug,Release}Internet.
       - name: ./gradlew check
         run: ./gradlew --no-daemon check
 
@@ -45,12 +50,6 @@ jobs:
         # API 31 matches the primary target hardware and is mandatory before release
         # (spec §9.3); 34 guards the newer FGS / storage behaviour.
         api-level: [31, 34]
-    env:
-      # Keep in lockstep with app/build.gradle.kts: `ndkVersion` and `cmake { version }`.
-      # These are bleeding-edge (NDK r30-beta1); if a runner can no longer fetch them, bump the
-      # pins deliberately in the build rather than freezing stale copies here.
-      NDK_VERSION: "30.0.14904198"
-      CMAKE_VERSION: "4.1.2"
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21 (Temurin)
@@ -61,10 +60,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Install pinned NDK & CMake
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" >/dev/null
+        uses: ./.github/actions/install-ndk
       - name: Enable KVM (emulator hardware acceleration)
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \

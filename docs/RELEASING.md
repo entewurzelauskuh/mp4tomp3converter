@@ -24,7 +24,10 @@ Two workflows live under `.github/workflows/`:
 
 - **`ci.yml`** (push to `main`, PRs). A `check` job on `ubuntu-latest` (JDK 21 Temurin,
   `gradle/actions/setup-gradle`) runs `./gradlew check` — Spotless, lint, unit tests, and the
-  `assertNo*Internet` privacy check, all NDK-free. An `instrumented` job runs
+  `assertNo*Internet` privacy check. It runs no native task, but AGP resolves `ndkVersion` at
+  configuration time, so every job installs the NDK via the shared
+  `./.github/actions/install-ndk` composite (the single source of truth for those pins). An
+  `instrumented` job runs
   `connectedDebugAndroidTest` on `reactivecircus/android-emulator-runner` (KVM) across an API
   31 **and** 34 matrix, building only the `x86_64` native libs (`-Pabi=x86_64`) since that's the
   emulator ABI.

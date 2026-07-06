@@ -14,10 +14,6 @@ jobs:
   release:
     name: Build & publish release APK
     runs-on: ubuntu-latest
-    env:
-      # Keep in lockstep with app/build.gradle.kts (see the CI workflow's note on these pins).
-      NDK_VERSION: "30.0.14904198"
-      CMAKE_VERSION: "4.1.2"
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21 (Temurin)
@@ -28,10 +24,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Install pinned NDK & CMake
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" >/dev/null
+        uses: ./.github/actions/install-ndk
       - name: Assemble release APK (all ABIs)
         run: ./gradlew --no-daemon assembleRelease
       - name: Stage APK under a versioned, debug-signed name
