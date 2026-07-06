@@ -1,6 +1,5 @@
 package io.github.entewurzelauskuh.mp4tomp3.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -23,8 +22,10 @@ fun Mp4ToMp3Theme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    // Dynamic (wallpaper-based) colour is always available: minSdk is 31 (Android 12). The
+    // static light/dark schemes are the dynamicColor=false escape hatch (e.g. for previews).
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        dynamicColor -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
