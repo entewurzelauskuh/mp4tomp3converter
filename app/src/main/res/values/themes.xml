@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Window-level theme applied before Compose takes over. Compose (Material 3)
+  owns the real theming/colors; this only needs to be a no-action-bar, day/night
+  platform theme so there is no ActionBar and system bars follow dark mode.
+-->
+<resources>
+    <style name="Theme.MP4toMP3converter" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

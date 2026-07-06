@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- All user-facing strings live here (spec N6). English only in v1. -->
+<resources>
+    <string name="app_name">MP4 to MP3 Converter</string>
+</resources>
