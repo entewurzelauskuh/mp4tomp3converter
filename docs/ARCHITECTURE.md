@@ -28,9 +28,10 @@ in-memory job queue, DataStore for settings. The authoritative spec is
   which processes one job at a time (FIFO) on `Dispatchers.Default`: pick the sink for the
   current `OutputTarget`, `open` it, run the blocking `AudioConverter`, then `finalize` on
   success or `abort` on failure/cancel.
-- **`AppContainer`** (owned by `App`) wires the real implementations and implements
-  `ConversionDependencies`, which the service reads via `application as ConversionDependencies`
-  (Android instantiates services, so there is no constructor injection).
+- **`AppContainer`** wires the real implementations; **`App`** owns it and implements
+  `ConversionDependencies` (delegating each collaborator to the container), which the service
+  reads via `application as ConversionDependencies` (Android instantiates services, so there is
+  no constructor injection).
 
 ## Threading
 
