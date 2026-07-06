@@ -36,7 +36,13 @@ class AppContainer(context: Context) {
         }
     }
 
-    /** Query the content resolver for a source's display name, falling back to the URI's tail. */
+    /**
+     * Query the content resolver for a source's display name, falling back to the URI's tail.
+     *
+     * Called synchronously by `JobRepository.enqueue`, which runs on the UI thread from the
+     * picker result. A `DISPLAY_NAME` query IPCs to the document provider, so this can briefly
+     * block for a slow/remote provider — acceptable for the small multi-select counts in v1.
+     */
     private fun resolveDisplayName(uri: Uri): String {
         var name: String? = null
         runCatching {
@@ -50,7 +56,7 @@ class AppContainer(context: Context) {
                 }
         }
         return name?.takeIf { it.isNotBlank() }
-            ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+            ?: uri.lastPathSegment?.takeIf { it.isNotBlank() }
             ?: "video.mp4"
     }
 }
