@@ -65,6 +65,11 @@ class QueueDrainer(
                 // elsewhere (spec §6.5); fail this job and keep draining the rest.
                 repository.markFailed(id, FailureReason.OutputFolderUnavailable)
                 continue
+            } catch (t: Throwable) {
+                // Any other failure while reserving the target (e.g. IOException/ENOSPC) fails
+                // just this job — it must never wedge the queue with a stuck Running job.
+                repository.markFailed(id, reasonFor(t))
+                continue
             }
 
             processOpenedJob(id, sink, open)
@@ -77,20 +82,38 @@ class QueueDrainer(
      * branching (spec §6.4).
      */
     private fun processOpenedJob(id: String, sink: OutputSink, open: OpenOutput) {
-        val result = converter.convert(
-            context = context,
-            sourceUri = repository.jobs.value.first { it.id == id }.sourceUri,
-            output = open.stream,
-            onProgress = { percent ->
-                repository.updateProgress(id, percent)
-                // Emit the freshly-updated job so the service can refresh the notification.
-                repository.jobs.value.firstOrNull { it.id == id }?.let(onProgress)
-            },
-            isCancelled = { repository.isCancellationRequested(id) },
-        )
+        val sourceUri = repository.jobs.value.firstOrNull { it.id == id }?.sourceUri
+        if (sourceUri == null) {
+            // The job vanished (shouldn't happen for a non-terminal job) — clean up and bail.
+            runCatching { open.stream.close() }
+            sink.abort(open.handle)
+            return
+        }
+
+        val result = try {
+            converter.convert(
+                context = context,
+                sourceUri = sourceUri,
+                output = open.stream,
+                onProgress = { percent ->
+                    repository.updateProgress(id, percent)
+                    // Emit the freshly-updated job so the service can refresh the notification.
+                    repository.jobs.value.firstOrNull { it.id == id }?.let(onProgress)
+                },
+                isCancelled = { repository.isCancellationRequested(id) },
+            )
+        } catch (t: Throwable) {
+            // The converter threw unexpectedly (RuntimeException / OOM / UnsatisfiedLinkError /
+            // …). Never leave the job Running: close the stream, delete the partial output, fail.
+            runCatching { open.stream.close() }
+            sink.abort(open.handle)
+            repository.markFailed(id, reasonFor(t))
+            return
+        }
 
         // A cancel that arrived during conversion wins regardless of the converter result.
         if (repository.isCancellationRequested(id)) {
+            runCatching { open.stream.close() }
             sink.abort(open.handle)
             repository.markCancelled(id)
             return
@@ -100,11 +123,14 @@ class QueueDrainer(
             is ConverterResult.Success -> finalizeSuccess(id, sink, open)
 
             is ConverterResult.Failure -> {
+                runCatching { open.stream.close() }
                 sink.abort(open.handle)
                 repository.markFailed(id, result.reason)
             }
         }
     }
+
+    private fun reasonFor(t: Throwable): FailureReason = if (StorageErrors.isOutOfSpace(t)) FailureReason.StorageFull else FailureReason.Unknown
 
     /**
      * Closes the stream and commits the output. A failure while closing or finalising means
