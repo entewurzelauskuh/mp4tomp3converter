@@ -50,12 +50,14 @@ class EndToEndConversionTest {
             rowUri = findInMusic(finalName)
             assertNotNull("converted file should be queryable in MediaStore", rowUri)
 
-            // Duration within ±5% of the 3.0 s source.
+            // Roughly the 3.0 s source length. A generous bound: the test's job is "valid,
+            // playable, roughly-right-length MP3", not sample-accurate duration (LAME encoder
+            // delay + decoder padding on a CBR re-encode shift it by a few frames).
             MediaMetadataRetriever().use { retriever ->
                 retriever.setDataSource(context, rowUri)
                 val durationMs =
                     retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
-                assertTrue("duration was $durationMs ms", abs(durationMs - 3000L) <= 150L)
+                assertTrue("duration was $durationMs ms", abs(durationMs - 3000L) <= 300L)
             }
 
             // MediaPlayer.prepare() must succeed on the output.
@@ -68,7 +70,11 @@ class EndToEndConversionTest {
                 player.release()
             }
         } finally {
-            rowUri?.let { context.contentResolver.delete(it, null, null) }
+            // Clean up via the sink handle (deletes the row whether still pending or finalized),
+            // so a failure before rowUri is assigned doesn't leak an orphan row. Also release the
+            // output FD in case convert() threw before the in-try close().
+            runCatching { open.stream.close() }
+            runCatching { sink.abort(open.handle) }
             source.delete()
         }
     }

@@ -1,7 +1,6 @@
 package io.github.entewurzelauskuh.mp4tomp3.ui.settings
 
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -26,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.entewurzelauskuh.mp4tomp3.R
@@ -125,7 +125,7 @@ private fun outputTargetLabel(target: OutputTarget): String = when (target) {
 private fun rememberSafTreeName(treeUri: String): String {
     val context = LocalContext.current
     return remember(treeUri) {
-        val uri = Uri.parse(treeUri)
+        val uri = treeUri.toUri()
         runCatching { DocumentFile.fromTreeUri(context, uri)?.name }
             .getOrNull()
             ?.takeIf { it.isNotBlank() }

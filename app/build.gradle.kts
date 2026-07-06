@@ -72,16 +72,24 @@ android {
     }
 
     lint {
-        // Fail the build on lint problems in our code; existing/library noise is captured in
-        // lint-baseline.xml so only NEW warnings break the build (spec §9.5).
+        // Fail the build on lint problems in our code (spec §9.5). Rather than a baseline (which
+        // pins non-portable absolute paths and breaks fresh clones), disable the pure "newer
+        // version available" upgrade nags — this project deliberately pins versions — and the
+        // backup-rules nag. Genuine code warnings still fail the build.
         warningsAsErrors = true
         checkReleaseBuilds = true
-        baseline = file("lint-baseline.xml")
+        disable +=
+            setOf(
+                "GradleDependency",
+                "NewerVersionAvailable",
+                "AndroidGradlePluginVersion",
+                "DataExtractionRules",
+            )
     }
 }
 
 // Static privacy check (spec N1/§9.5): the merged app manifest must never declare INTERNET.
-// Runs over the real MERGED_MANIFEST artifact (not the test APK) and is wired into `check`.
+// Runs over the real MERGED_MANIFEST artifact (not the test APK).
 androidComponents {
     onVariants { variant ->
         val mergedManifest = variant.artifacts.get(SingleArtifact.MERGED_MANIFEST)
@@ -90,9 +98,10 @@ androidComponents {
             inputs.file(mergedManifest)
             doLast {
                 val text = mergedManifest.get().asFile.readText()
-                // Match a real <uses-permission> element, not the word "INTERNET" in a comment.
+                // Match a real <uses-permission> element (tolerant of attribute spacing and
+                // quote style), not the word "INTERNET" appearing in a manifest comment.
                 val declared = Regex(
-                    """<uses-permission[^>]*android:name="android\.permission\.INTERNET"""",
+                    """<uses-permission[^>]*android:name\s*=\s*["']android\.permission\.INTERNET["']""",
                 ).containsMatchIn(text)
                 require(!declared) {
                     "The merged ${variant.name} manifest declares android.permission.INTERNET. " +
@@ -100,7 +109,13 @@ androidComponents {
                 }
             }
         }
+        // Wire into BOTH `check` and the variant's assembly, so the documented release gate
+        // (which assembles but does not run `check`) still enforces the no-INTERNET invariant.
+        // `assemble<Variant>` isn't registered yet during onVariants, so match it lazily.
         tasks.named("check").configure { dependsOn(assertNoInternet) }
+        tasks.matching { it.name == "assemble$variantName" }.configureEach {
+            dependsOn(assertNoInternet)
+        }
     }
 }
 
