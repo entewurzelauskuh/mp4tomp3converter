@@ -2,6 +2,7 @@ package io.github.entewurzelauskuh.mp4tomp3.output
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import java.io.IOException
 import java.io.OutputStream
@@ -24,7 +25,7 @@ class SafTreeSink(
     // Hold the application context so the sink outlives any Activity/Service that created it.
     private val appContext = context.applicationContext
     private val resolver get() = appContext.contentResolver
-    private val treeUri: Uri = Uri.parse(treeUriString)
+    private val treeUri: Uri = treeUriString.toUri()
 
     override fun open(desiredBaseName: String): OpenOutput = try {
         // fromTreeUri returns null when the URI is unusable; canWrite() covers a revoked
