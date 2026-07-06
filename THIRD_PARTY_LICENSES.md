@@ -15,6 +15,6 @@ This app's own code is MIT-licensed (see `LICENSE` and decision D4 in
 - **How LGPL is satisfied:** LAME is built as a **separate, dynamically linked shared
   library** `liblame.so` (see `app/src/main/cpp/CMakeLists.txt`); the JNI bridge
   `liblame_jni.so` links against it and it is **never statically linked** into the app's
-  own code. Users can replace the shared library, and the complete corresponding LAME
-  source is included in this repository. This dynamic linking is what keeps LAME's LGPL
-  compatible with this app's MIT license (decision D4).
+  own code. The complete corresponding LAME source is included in this repository, so the
+  app can be rebuilt and re-linked against a modified LAME (LGPL-2.1 §6). This dynamic
+  linking is what keeps LAME's LGPL compatible with this app's MIT license (decision D4).

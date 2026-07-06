@@ -52,9 +52,19 @@ Java_io_github_entewurzelauskuh_mp4tomp3_engine_jni_LameEncoder_nativeEncode(
         return -1;
     }
     const jsize outCapacity = (*env)->GetArrayLength(env, out);
+    const int channels = lame_get_num_channels(gfp);
+
+    /* Guard against a caller whose sample count would read past the PCM array (out-of-bounds
+     * native read). samplesPerChannel * channels must fit within the array length. */
+    const jsize pcmLen = (*env)->GetArrayLength(env, pcm);
+    if (samplesPerChannel < 0 || (jlong) samplesPerChannel * channels > pcmLen) {
+        (*env)->ReleaseShortArrayElements(env, pcm, pcmPtr, JNI_ABORT);
+        (*env)->ReleaseByteArrayElements(env, out, outPtr, JNI_ABORT);
+        return -1;
+    }
 
     int written;
-    if (lame_get_num_channels(gfp) == 1) {
+    if (channels == 1) {
         /* Mono: LAME reads only the left buffer; pass the same pointer for right. */
         written = lame_encode_buffer(
                 gfp, pcmPtr, pcmPtr, samplesPerChannel,
