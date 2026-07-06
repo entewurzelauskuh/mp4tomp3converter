@@ -35,7 +35,30 @@ emulator -avd <name> -no-window -no-boot-anim
 only — never shipped) generates the tiny committed media assets under
 `app/src/androidTest/assets/`. See spec §9.2.
 
+## Automated coverage (current)
+
+- **JVM unit (42):** `JobRepository` queue/state machine, `QueueDrainer` drain loop (with
+  fakes), `FileNaming` sanitise/collision, `ProgressThrottler`, settings serialization,
+  in-memory settings.
+- **Instrumented (13, emulator):** engine conversion (stereo/mono → valid MP3 with monotonic
+  progress, `NoAudioTrack`, `UnsupportedChannelLayout`, cancellation), `MediaStoreSink`
+  (create/finalize/abort/collision), Compose UI (empty state, per-state rendering, menu
+  navigation, settings default), and the end-to-end test (fixture → real MP3 in MediaStore,
+  duration within ±5%, `MediaPlayer.prepare()` succeeds).
+
 ## Manual checklist (physical Android 12 device — run by the human only)
 
-The human runs the spec §9.4 checklist on the physical phone before each release; the
-agent only prepares the APK and this checklist and never touches the physical device.
+The human runs this on the physical phone before each release; the agent only prepares the APK
+and this checklist and never touches the physical device (spec §9.4, §10.2).
+
+- [ ] Convert a real phone recording (`.mp4` with AAC audio) → plays back correctly.
+- [ ] Queue 3 files → they convert sequentially with correct notifications.
+- [ ] Cancel mid-conversion → job shows Cancelled and **no** stray file remains in Music.
+- [ ] Background the app mid-conversion → it keeps going and finishes.
+- [ ] Deny the notification permission, then convert → still works (muted notification).
+- [ ] Change the output folder to an SD-card/USB tree and convert → file lands there.
+- [ ] Delete that chosen folder, then convert → shows the "output folder unavailable" error
+      (does **not** silently write elsewhere).
+- [ ] Airplane mode → app behaves identically (nothing uses the network).
+- [ ] Dark mode looks correct.
+- [ ] TalkBack pass over the main screen (labels/content descriptions read sensibly).
