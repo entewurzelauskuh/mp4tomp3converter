@@ -46,17 +46,20 @@ class SafTreeSink(
             tree.createFile(MIME_MP3, finalName)
                 ?: throw IOException("Could not create $finalName in the output folder")
 
-        // Some SAF providers alter the on-disk name (append/duplicate the extension, or
-        // strip it). Force it back to our deterministic name so humanPath and the actual
-        // file agree; if the rename can't land on the exact name, fall back to what the
-        // provider actually stored so callers never lie about the path.
-        val onDiskName = ensureDeterministicName(created, finalName, tree)
-
-        OpenOutput(
-            stream = openStream(created),
-            humanPath = humanTreePath() + "/" + onDiskName,
-            handle = SafHandle(created),
-        )
+        // Everything after createFile can throw (rename/stream-open, incl. SecurityException on
+        // a revoked grant). If it does, delete the just-created document so we never leave an
+        // empty/misnamed orphan behind — mirroring MediaStoreSink's pending-row rollback.
+        try {
+            val onDiskName = ensureDeterministicName(created, finalName, tree)
+            OpenOutput(
+                stream = openStream(created),
+                humanPath = humanTreePath(tree) + "/" + onDiskName,
+                handle = SafHandle(created),
+            )
+        } catch (t: Throwable) {
+            runCatching { created.delete() }
+            throw t
+        }
     } catch (e: SecurityException) {
         // A lost persisted permission manifests as SecurityException mid-operation.
         throw OutputFolderUnavailableException("Lost permission to the output folder", e)
@@ -79,6 +82,13 @@ class SafTreeSink(
      * returning the name that is actually on disk afterwards. Renaming can itself hit a
      * collision the provider invented, so we only rename when the current name differs and we
      * accept the provider's result if the rename does not stick.
+     *
+     * **Known limitation (inherent to SAF):** some providers auto-rename on `createFile`
+     * (e.g. case-insensitive collisions [findFile] didn't catch, or appended extensions). When
+     * the forced rename can't reclaim [desiredName], the provider's name wins and the returned
+     * [humanPath] reflects it — so the app never lies about where the file is, but the exact
+     * deterministic ` (n)` scheme isn't guaranteed on such providers. The default MediaStore
+     * path has no such caveat.
      */
     private fun ensureDeterministicName(
         created: DocumentFile,
@@ -101,13 +111,11 @@ class SafTreeSink(
 
     /**
      * A short human-readable label for the chosen tree (spec F6 shows "the chosen folder's
-     * human-readable path"). We prefer the tree's own display name; if the provider doesn't
-     * expose one we fall back to the last path segment of the tree URI.
+     * human-readable path"). Reuses the already-resolved [tree] rather than re-resolving; falls
+     * back to the last path segment of the tree URI if the provider exposes no display name.
      */
-    private fun humanTreePath(): String {
-        val treeName =
-            runCatching { DocumentFile.fromTreeUri(appContext, treeUri)?.name }
-                .getOrNull()
+    private fun humanTreePath(tree: DocumentFile): String {
+        val treeName = runCatching { tree.name }.getOrNull()
         if (!treeName.isNullOrBlank()) return treeName
         return treeUri.lastPathSegment ?: treeUri.toString()
     }
