@@ -6,9 +6,17 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Spec ABIs. Override for faster local native builds, e.g. `-Pabi=arm64-v8a`.
+val abiOverride: List<String>? =
+    providers.gradleProperty("abi").orNull?.split(",")?.map { it.trim() }
+
 android {
     namespace = "io.github.entewurzelauskuh.mp4tomp3"
     compileSdk = 36
+
+    // Only the r30-beta1 NDK is installed on this build host. The spec preferred an LTS NDK,
+    // but this is what is available; pin it explicitly so builds are reproducible.
+    ndkVersion = "30.0.14904198"
 
     defaultConfig {
         applicationId = "io.github.entewurzelauskuh.mp4tomp3"
@@ -18,6 +26,20 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            // Spec ABIs are arm64-v8a, armeabi-v7a, x86_64. The emulators on this Apple-silicon
+            // host are arm64-v8a, so all local testing uses that ABI; the others ship for real
+            // devices. Narrow with `-Pabi=...` for faster local native builds.
+            abiFilters += abiOverride ?: listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "4.1.2"
+        }
     }
 
     buildTypes {
