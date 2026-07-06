@@ -22,7 +22,7 @@
 
 Not yet implemented — designed for when it's added:
 
-- Runner: `ubuntu-latest`, JDK from the catalog, `gradle/actions/setup-gradle`.
+- Runner: `ubuntu-latest`, JDK 21 (Temurin) matching the build host, `gradle/actions/setup-gradle`.
 - Build: `./gradlew assembleRelease`, upload the APK as a release artifact attached to the tag.
 - Instrumented tests: an emulator action with KVM (e.g. `reactivecircus/android-emulator-runner`)
   on API 31 and 34/35.

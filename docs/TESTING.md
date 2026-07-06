@@ -37,14 +37,14 @@ only — never shipped) generates the tiny committed media assets under
 
 ## Automated coverage (current)
 
-- **JVM unit (42):** `JobRepository` queue/state machine, `QueueDrainer` drain loop (with
+- **JVM unit (43):** `JobRepository` queue/state machine, `QueueDrainer` drain loop (with
   fakes), `FileNaming` sanitise/collision, `ProgressThrottler`, settings serialization,
   in-memory settings.
-- **Instrumented (13, emulator):** engine conversion (stereo/mono → valid MP3 with monotonic
+- **Instrumented (14, emulator):** engine conversion (stereo/mono → valid MP3 with monotonic
   progress, `NoAudioTrack`, `UnsupportedChannelLayout`, cancellation), `MediaStoreSink`
   (create/finalize/abort/collision), Compose UI (empty state, per-state rendering, menu
-  navigation, settings default), and the end-to-end test (fixture → real MP3 in MediaStore,
-  duration within ±5%, `MediaPlayer.prepare()` succeeds).
+  navigation, settings default + SAF folder), and the end-to-end test (fixture → real MP3 in
+  MediaStore, roughly the source length, `MediaPlayer.prepare()` succeeds).
 
 ## Manual checklist (physical Android 12 device — run by the human only)
 
