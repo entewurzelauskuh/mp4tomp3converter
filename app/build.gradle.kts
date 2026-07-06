@@ -45,13 +45,16 @@ android {
 
     buildTypes {
         release {
-            // Release is debug-signed for now (see docs/RELEASING.md). Minification
-            // stays off until the JNI/native surface (Phase 2) is in and keep-rules exist.
-            isMinifyEnabled = false
+            // R8 shrink + resource shrink (keeps the APK well under the 15 MB soft budget, N4);
+            // JNI keep rules live in proguard-rules.pro. Debug-signed for now so the release
+            // APK installs and converts without a keystore (see docs/RELEASING.md).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
