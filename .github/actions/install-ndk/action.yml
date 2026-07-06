@@ -11,5 +11,11 @@ runs:
     - shell: bash
       run: |
         SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-        yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-        yes | "$SDKMANAGER" "ndk;30.0.14904198" "cmake;4.1.2" >/dev/null
+        # Accept all pending SDK licenses (idempotent). `yes` can die by SIGPIPE when sdkmanager
+        # exits first; under `pipefail` that would fail the line, so this best-effort step alone
+        # is guarded with `|| true`.
+        yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+        # Licenses are accepted now, so this install does not prompt — run it without `yes` (no
+        # SIGPIPE race) and without swallowing output, so a genuine failure fails the step loudly
+        # instead of silently leaving the NDK missing.
+        "$SDKMANAGER" "ndk;30.0.14904198" "cmake;4.1.2"
