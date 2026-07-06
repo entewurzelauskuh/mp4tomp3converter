@@ -311,7 +311,7 @@ Run on API 31, 34/35 emulators. **API 31 is mandatory before any release** — i
 
 ## 10. Build environment (macOS)
 
-- Android Studio (current stable) or CLI: `sdkmanager` platforms + build-tools per catalog, platform-tools, emulator, ARM64 system images (API 34, 35); NDK + CMake only for Option A.
+- Android Studio (current stable) or CLI: `sdkmanager` platforms + build-tools per catalog, platform-tools, emulator, ARM64 system images (API 31, 34, 35); NDK + CMake only for Option A.
 - JDK: the version required by the pinned AGP (17 or newer) — record it in the README and `.tool-versions` or `gradle.properties` (`org.gradle.java.home` left unset; document `JAVA_HOME`).
 - `brew install ffmpeg` — fixtures only.
 - Everything must build from a fresh clone with `./gradlew build` — no machine-local configuration beyond the SDK path in `local.properties` (git-ignored).
