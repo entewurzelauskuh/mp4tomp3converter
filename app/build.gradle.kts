@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -68,6 +69,38 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    lint {
+        // Fail the build on lint problems in our code; existing/library noise is captured in
+        // lint-baseline.xml so only NEW warnings break the build (spec §9.5).
+        warningsAsErrors = true
+        checkReleaseBuilds = true
+        baseline = file("lint-baseline.xml")
+    }
+}
+
+// Static privacy check (spec N1/§9.5): the merged app manifest must never declare INTERNET.
+// Runs over the real MERGED_MANIFEST artifact (not the test APK) and is wired into `check`.
+androidComponents {
+    onVariants { variant ->
+        val mergedManifest = variant.artifacts.get(SingleArtifact.MERGED_MANIFEST)
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val assertNoInternet = tasks.register("assertNo${variantName}Internet") {
+            inputs.file(mergedManifest)
+            doLast {
+                val text = mergedManifest.get().asFile.readText()
+                // Match a real <uses-permission> element, not the word "INTERNET" in a comment.
+                val declared = Regex(
+                    """<uses-permission[^>]*android:name="android\.permission\.INTERNET"""",
+                ).containsMatchIn(text)
+                require(!declared) {
+                    "The merged ${variant.name} manifest declares android.permission.INTERNET. " +
+                        "This app must never request INTERNET (spec N1)."
+                }
+            }
+        }
+        tasks.named("check").configure { dependsOn(assertNoInternet) }
     }
 }
 
