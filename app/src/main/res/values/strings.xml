@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- All user-facing strings live here (spec N6). English only in v1. -->
+<resources>
+    <string name="app_name">MP4 to MP3 Converter</string>
+
+    <!-- Foreground-service notifications (Phase 4) -->
+    <string name="notification_channel_name">Conversions</string>
+    <string name="notification_channel_description">Progress while converting audio files</string>
+    <string name="notification_preparing">Preparing…</string>
+    <string name="notification_converting">Converting %1$s</string>
+    <string name="action_cancel">Cancel</string>
+    <plurals name="notification_summary">
+        <item quantity="one">%1$d file converted</item>
+        <item quantity="other">%1$d files converted</item>
+    </plurals>
+
+    <!-- UI (Phase 5) -->
+    <string name="menu_convert_file">Convert file…</string>
+    <string name="menu_settings">Settings</string>
+    <string name="title_settings">Settings</string>
+    <string name="cd_more_options">More options</string>
+    <string name="cd_back">Back</string>
+    <string name="empty_hint">Tap ⋮ → Convert a file</string>
+
+    <!-- Job states -->
+    <string name="state_queued">Queued</string>
+    <string name="state_converting">Converting</string>
+    <string name="state_done">Saved to %1$s</string>
+    <string name="state_cancelled">Cancelled</string>
+    <string name="action_clear">Clear</string>
+
+    <!-- Failure messages (spec §6.5) -->
+    <string name="failure_no_audio_track">This video has no audio track.</string>
+    <string name="failure_unsupported_codec">The audio format in this file isn\'t supported by this device.</string>
+    <string name="failure_unsupported_channels">Surround-sound audio isn\'t supported yet.</string>
+    <string name="failure_source_unreadable">The file could not be read.</string>
+    <string name="failure_output_folder_unavailable">The output folder is no longer available — check Settings.</string>
+    <string name="failure_storage_full">Not enough storage space.</string>
+    <string name="failure_unknown">Conversion failed.</string>
+
+    <!-- Settings -->
+    <string name="settings_output_folder_title">Output folder</string>
+    <string name="settings_output_music_default">Music (default)</string>
+    <string name="settings_choose_folder">Choose folder…</string>
+    <string name="settings_reset_default">Reset to default</string>
+</resources>

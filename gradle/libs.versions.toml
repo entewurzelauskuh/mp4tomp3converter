@@ -1,0 +1,65 @@
+# Version catalog — single source of truth for dependency & plugin versions.
+# Pinned 2026-07-06 to the latest stable releases available at scaffold time
+# (see docs/DECISIONS.md and CLAUDE.md). Bump deliberately, never silently.
+[versions]
+agp = "9.1.1"                 # Android Gradle Plugin (latest stable, requires Gradle >= 9.3.1)
+kotlin = "2.3.21"             # Kotlin + Compose Compiler plugin (shipped together since 2.0)
+composeBom = "2026.06.00"     # Compose Bill of Materials — pins all androidx.compose.* versions
+coreKtx = "1.17.0"
+lifecycle = "2.10.0"
+activityCompose = "1.12.4"
+datastore = "1.2.0"
+documentfile = "1.1.0"
+coroutines = "1.10.2"
+androidxTest = "1.7.0"
+spotless = "8.4.0"
+junit = "4.13.2"
+androidxTestExtJunit = "1.3.0"
+espresso = "3.7.0"
+mockito = "5.23.0"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+
+# Kotlin Gradle Plugin on the buildscript classpath: bumps AGP 9's built-in Kotlin
+# (default KGP 2.2.10) up to the pinned version. See root build.gradle.kts.
+kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+
+# Compose — versions come from the BOM, so no version.ref on the individual artifacts.
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+# Core Material icons only (MoreVert, Settings, ArrowBack, …) — NOT the huge -extended set.
+androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
+
+# Test
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTest" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTest" }
+androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTest" }
+# Mockito is used only to supply opaque android.net.Uri stand-ins in JVM unit tests
+# (jobs/ holds Uri but never calls its methods); it keeps those tests Robolectric-free.
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+
+[plugins]
+# NB: AGP 9 has built-in Kotlin — there is deliberately NO org.jetbrains.kotlin.android
+# plugin here (applying it is an error in AGP 9). Kotlin comes from AGP; only the
+# Compose compiler plugin is applied explicitly (its version must match Kotlin).
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
