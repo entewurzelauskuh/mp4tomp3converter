@@ -68,6 +68,9 @@ object Notifications {
             convertedCount,
         )
         val summary = baseBuilder(context)
+            // Swap the animated "download in progress" arrow for the static "download complete"
+            // system icon — the summary is a finished state, so a moving icon reads as still-working.
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(text)
             .setAutoCancel(true)
             .build()
