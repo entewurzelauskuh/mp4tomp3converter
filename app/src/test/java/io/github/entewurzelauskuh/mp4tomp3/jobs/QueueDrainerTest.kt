@@ -109,6 +109,28 @@ class QueueDrainerTest {
     }
 
     @Test
+    fun converterThrowingFailsTheJobAndAbortsInsteadOfStayingRunning() = runTest {
+        val repo = repo()
+        val sink = RecordingSink()
+        val id = repo.enqueue(listOf(uri())).single()
+        val throwing = object : AudioConverter {
+            override fun convert(
+                context: Context,
+                sourceUri: Uri,
+                output: java.io.OutputStream,
+                onProgress: (percent: Int) -> Unit,
+                isCancelled: () -> Boolean,
+            ): ConverterResult = throw RuntimeException("boom")
+        }
+
+        QueueDrainer(repo, throwing, { sink }, InMemorySettingsRepository(), context).drainQueue()
+
+        // Must not be left Running; the partial output is aborted.
+        assertTrue(repo.jobs.value.single { it.id == id }.state is JobState.Failed)
+        assertEquals(listOf("open", "abort"), sink.events)
+    }
+
+    @Test
     fun missingOutputFolderFailsWithOutputFolderUnavailable() = runTest {
         val repo = repo()
         val id = repo.enqueue(listOf(uri())).single()
