@@ -3,9 +3,13 @@
 
     <!--
       Privacy guarantee (spec N1): this app declares NO android.permission.INTERNET,
-      ever. Only foreground-service and POST_NOTIFICATIONS permissions will be added
-      (Phase 4). A static check asserts the merged manifest omits INTERNET.
+      ever. Only foreground-service and POST_NOTIFICATIONS permissions appear below.
+      A static check asserts the merged manifest omits INTERNET.
     -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -24,5 +28,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Drains the conversion queue in the background (spec §6.4). Declares BOTH FGS types;
+          the runtime picks mediaProcessing (API >= 35) or dataSync (API 31-34) in code.
+        -->
+        <service
+            android:name=".jobs.ConversionService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaProcessing" />
+
+        <receiver
+            android:name=".jobs.CancelReceiver"
+            android:exported="false" />
     </application>
 </manifest>

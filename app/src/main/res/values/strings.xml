@@ -2,4 +2,15 @@
 <!-- All user-facing strings live here (spec N6). English only in v1. -->
 <resources>
     <string name="app_name">MP4 to MP3 Converter</string>
+
+    <!-- Foreground-service notifications (Phase 4) -->
+    <string name="notification_channel_name">Conversions</string>
+    <string name="notification_channel_description">Progress while converting audio files</string>
+    <string name="notification_preparing">Preparing…</string>
+    <string name="notification_converting">Converting %1$s</string>
+    <string name="action_cancel">Cancel</string>
+    <plurals name="notification_summary">
+        <item quantity="one">%1$d file converted</item>
+        <item quantity="other">%1$d files converted</item>
+    </plurals>
 </resources>
