@@ -4,10 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current repository state
 
-**Phases 0 (scaffold) and 1 (domain core + frozen contracts) are complete.** The project builds
-and 37 JVM unit tests pass. Next: Phases 2–5 (engine, sinks, service, UI) — independent and
-parallelizable against the Phase 1 contracts. `MP4toMP3converter-SPEC.md` remains the **single
-source of truth**; `docs/DECISIONS.md` records the resolved D1–D5.
+**All phases (0–9) are complete.** The full gate is green from a clean checkout:
+`./gradlew test connectedDebugAndroidTest lint spotlessCheck assembleRelease` — 42 JVM unit
+tests + 13 instrumented tests (API 31 emulator). The R8-shrunk, debug-signed release APK is
+~3 MB and installs/launches. `MP4toMP3converter-SPEC.md` remains the **single source of truth**;
+`docs/DECISIONS.md` records the resolved D1–D5. The physical-device manual checklist
+(`docs/TESTING.md`, spec §9.4) is the human's to run.
 
 Phase 1 froze these (in `app/src/main/java/io/github/entewurzelauskuh/mp4tomp3/`): `jobs/`
 (`ConversionJob`, `JobState`, `FailureReason`, `JobRepository`), `engine/` (`AudioConverter`,
