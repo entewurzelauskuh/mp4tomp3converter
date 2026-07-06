@@ -1,7 +1,9 @@
 package io.github.entewurzelauskuh.mp4tomp3.output
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -9,7 +11,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -109,21 +110,28 @@ class MediaStoreSinkTest {
                 MediaStore.Audio.Media.RELATIVE_PATH,
                 MediaStore.Audio.Media.IS_PENDING,
             )
-        val selection =
-            "${MediaStore.Audio.Media.DISPLAY_NAME} = ? AND " +
-                "${MediaStore.Audio.Media.RELATIVE_PATH} = ?"
-        val args = arrayOf(name, "Music/")
-        // Include pending rows so tests can observe the pre-finalize state too.
+        // Include pending rows so tests observe the pre-finalize state and cleanup can delete
+        // rows left pending by a failed test (default queries hide pending rows on API >= 30).
+        val queryArgs =
+            Bundle().apply {
+                putString(
+                    ContentResolver.QUERY_ARG_SQL_SELECTION,
+                    "${MediaStore.Audio.Media.DISPLAY_NAME} = ? AND ${MediaStore.Audio.Media.RELATIVE_PATH} = ?",
+                )
+                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(name, "Music/"))
+                putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+            }
         context.contentResolver
-            .query(collectionUri(), projection, selection, args, null)
+            .query(collectionUri(), projection, queryArgs, null)
             ?.use { cursor ->
                 if (cursor.moveToFirst()) {
-                    val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID))
+                    fun col(name: String) = cursor.getColumnIndexOrThrow(name)
+                    val id = cursor.getLong(col(MediaStore.Audio.Media._ID))
                     return Row(
                         uri = Uri.withAppendedPath(collectionUri(), id.toString()),
-                        mimeType = cursor.getString(1),
-                        relativePath = cursor.getString(2),
-                        isPending = cursor.getInt(3),
+                        mimeType = cursor.getString(col(MediaStore.Audio.Media.MIME_TYPE)),
+                        relativePath = cursor.getString(col(MediaStore.Audio.Media.RELATIVE_PATH)),
+                        isPending = cursor.getInt(col(MediaStore.Audio.Media.IS_PENDING)),
                     )
                 }
             }
@@ -139,7 +147,5 @@ class MediaStoreSinkTest {
             }
         }
         createdNames.clear()
-        // Sanity: the primary Music collection should have no leftover test rows.
-        assertTrue(true)
     }
 }

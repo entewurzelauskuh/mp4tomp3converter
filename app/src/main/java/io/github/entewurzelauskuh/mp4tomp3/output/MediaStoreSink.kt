@@ -1,8 +1,10 @@
 package io.github.entewurzelauskuh.mp4tomp3.output
 
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore
 import java.io.IOException
 import java.io.OutputStream
@@ -46,14 +48,15 @@ class MediaStoreSink(
             resolver.insert(collectionUri(), values)
                 ?: throw IOException("MediaStore returned no Uri for $finalName")
 
-        // If the stream can't be opened, roll the pending row back so no orphan remains.
+        // If the stream can't be opened, roll the pending row back so no orphan remains. Catch
+        // any throwable (openOutputStream can throw SecurityException/UnsupportedOperation too).
         val stream =
             try {
                 resolver.openOutputStream(rowUri, "w")
                     ?: throw IOException("Could not open output stream for $rowUri")
-            } catch (e: IOException) {
+            } catch (t: Throwable) {
                 runCatching { resolver.delete(rowUri, null, null) }
-                throw e
+                throw t
             }
 
         return OpenOutput(
@@ -69,7 +72,13 @@ class MediaStoreSink(
             ContentValues().apply {
                 put(MediaStore.Audio.Media.IS_PENDING, 0)
             }
-        resolver.update(rowUri, values, null, null)
+        // finalize is on the success path: if clearing IS_PENDING didn't take (row gone, 0 rows
+        // updated), surface it so the job is marked Failed rather than reported Done with an
+        // invisible file (F5). abort(), by contrast, is best-effort.
+        val updated = resolver.update(rowUri, values, null, null)
+        if (updated != 1) {
+            throw IOException("Failed to finalize $rowUri (updated $updated rows)")
+        }
     }
 
     override fun abort(handle: OutputHandle) {
@@ -86,9 +95,17 @@ class MediaStoreSink(
     private fun existingNames(): Set<String> {
         val names = HashSet<String>()
         val projection = arrayOf(MediaStore.Audio.Media.DISPLAY_NAME)
-        val selection = "${MediaStore.Audio.Media.RELATIVE_PATH} = ?"
-        val args = arrayOf(MUSIC_RELATIVE_PATH)
-        resolver.query(collectionUri(), projection, selection, args, null)?.use { cursor ->
+        // Include our own still-pending rows (a crashed/in-flight prior job): their DISPLAY_NAME
+        // is already reserved, so they must count for collisions — otherwise MediaStore would
+        // auto-rename and defeat our deterministic " (n)" scheme (§6.6). Pending rows are
+        // excluded from queries by default on API >= 30.
+        val queryArgs =
+            Bundle().apply {
+                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "${MediaStore.Audio.Media.RELATIVE_PATH} = ?")
+                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(MUSIC_RELATIVE_PATH))
+                putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+            }
+        resolver.query(collectionUri(), projection, queryArgs, null)?.use { cursor ->
             val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
             while (cursor.moveToNext()) {
                 cursor.getString(nameColumn)?.let(names::add)
