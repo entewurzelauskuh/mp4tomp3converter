@@ -79,6 +79,11 @@ android {
         // pins non-portable absolute paths and breaks fresh clones), disable the pure "newer
         // version available" upgrade nags — this project deliberately pins versions — and the
         // backup-rules nag. Genuine code warnings still fail the build.
+        //
+        // OldTargetApi is disabled for the same "pin deliberately" reason AND for portability:
+        // it fires whenever the machine has a newer platform installed than targetSdk (36, the
+        // latest *stable*). CI runners ship preview platforms, so leaving it on makes lint pass
+        // locally but fail on CI. targetSdk tracks the latest stable by intent, not previews.
         warningsAsErrors = true
         checkReleaseBuilds = true
         disable +=
@@ -87,6 +92,7 @@ android {
                 "NewerVersionAvailable",
                 "AndroidGradlePluginVersion",
                 "DataExtractionRules",
+                "OldTargetApi",
             )
     }
 }
