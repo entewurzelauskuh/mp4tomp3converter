@@ -16,7 +16,8 @@ get_filename_component(
 # All encoder translation units. mpglib_interface.c (#ifdef HAVE_MPGLIB) and
 # vector/xmm_quantize_sub.c (#ifdef HAVE_XMMINTRIN_H) compile to nothing under our config.h,
 # so globbing them in is harmless and keeps the list maintenance-free.
-file(GLOB LAME_SOURCES
+# CONFIGURE_DEPENDS re-globs on rebuild so adding/removing a vendored .c triggers a reconfigure.
+file(GLOB LAME_SOURCES CONFIGURE_DEPENDS
     "${LAME_ROOT}/libmp3lame/*.c"
     "${LAME_ROOT}/libmp3lame/vector/*.c"
 )
@@ -28,8 +29,10 @@ target_include_directories(lame PRIVATE
     "${LAME_ROOT}/libmp3lame"            # internal headers
 )
 target_compile_definitions(lame PRIVATE HAVE_CONFIG_H)
-# LAME is warning-heavy legacy C; silence it and optimise. libm is folded into Bionic libc.
-target_compile_options(lame PRIVATE -Wno-everything -O2 -ffast-math)
+# LAME is warning-heavy legacy C; silence it and optimise. Keep implicit-function-declaration a
+# hard error so a missing config.h macro fails loudly instead of miscompiling. NO -ffast-math:
+# LAME's TAKEHIRO_IEEE754_HACK / psymodel rely on exact IEEE-754 behaviour. libm is in Bionic libc.
+target_compile_options(lame PRIVATE -Wno-everything -Werror=implicit-function-declaration -O2)
 
 add_library(lame_jni SHARED lame_jni.c)
 target_include_directories(lame_jni PRIVATE "${LAME_ROOT}/include")

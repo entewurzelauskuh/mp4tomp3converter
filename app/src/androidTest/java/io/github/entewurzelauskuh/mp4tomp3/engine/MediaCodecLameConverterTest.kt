@@ -20,12 +20,18 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 @RunWith(AndroidJUnit4::class)
 class MediaCodecLameConverterTest {
-    private val context: Context get() = InstrumentationRegistry.getInstrumentation().targetContext
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+
+    // The app context (its ContentResolver opens the source); the fixtures live in the TEST
+    // APK, so they are read from the instrumentation context's assets, not the app's.
+    private val context: Context get() = instrumentation.targetContext
     private val converter = MediaCodecLameConverter()
 
     private fun assetUri(name: String): Uri {
         val out = File(context.cacheDir, name)
-        context.assets.open(name).use { input -> out.outputStream().use { input.copyTo(it) } }
+        instrumentation.context.assets.open(name).use { input ->
+            out.outputStream().use { input.copyTo(it) }
+        }
         return Uri.fromFile(out)
     }
 
@@ -78,10 +84,14 @@ class MediaCodecLameConverterTest {
 
     @Test
     fun cancellationStopsPromptlyBeforeCompletion() {
+        // Baseline: a full conversion of the same fixture, to compare output sizes against.
+        val (fullResult, fullMp3) = convert("sine_stereo_aac_3s.mp4")
+        assertEquals(ConverterResult.Success, fullResult)
+
         val ticks = AtomicInteger(0)
         val progress = mutableListOf<Int>()
         // Cancel as soon as the first progress arrives, so conversion stops mid-file.
-        val (result, _) = convert(
+        val (result, partialMp3) = convert(
             "sine_stereo_aac_3s.mp4",
             isCancelled = { ticks.get() > 0 },
             onProgress = {
@@ -90,8 +100,13 @@ class MediaCodecLameConverterTest {
             },
         )
         // Per the contract, the converter returns Success on the cancel path (the service
-        // aborts the sink and marks the job cancelled); it must not have run to 100%.
+        // aborts the sink and marks the job cancelled); it must not have run to 100%...
         assertEquals(ConverterResult.Success, result)
         assertFalse("should not have completed", progress.contains(100))
+        // ...and it must have produced substantially less output than a full conversion.
+        assertTrue(
+            "cancelled output (${partialMp3.size}) should be well below full (${fullMp3.size})",
+            partialMp3.size < fullMp3.size / 2,
+        )
     }
 }
