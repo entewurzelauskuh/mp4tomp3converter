@@ -1,6 +1,15 @@
-# ProGuard/R8 rules for :app.
-#
-# Minification is currently OFF for release builds (see app/build.gradle.kts).
-# When it is enabled — after the JNI/native engine lands in Phase 2 — add keep
-# rules for the JNI entry points here (native methods and the classes that own
-# them must not be renamed/removed).
+# R8 rules for :app (release). AndroidX/Compose/DataStore ship their own consumer rules,
+# so the app only needs to protect its JNI surface.
+
+# Keep this OSS app readable: shrink/optimise, but don't rename symbols. Obfuscation adds
+# little for an MIT-licensed app and keeps crash stack traces useful.
+-dontobfuscate
+
+# JNI: the native methods are resolved by their fully-qualified C names
+# (Java_io_github_..._LameEncoder_nativeInit, …). R8 must not remove them or their class.
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native <methods>;
+}
+-keep class io.github.entewurzelauskuh.mp4tomp3.engine.jni.LameEncoder {
+    *;
+}
