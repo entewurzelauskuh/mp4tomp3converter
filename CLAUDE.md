@@ -4,10 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current repository state
 
-**Phase 0 (scaffold) is complete** — the Gradle project builds (`./gradlew assembleDebug test`)
-and the Hello activity launches on an API 31 emulator. Next: Phase 1 (domain core + contracts).
-`MP4toMP3converter-SPEC.md` remains the **single source of truth** — read it fully before writing
-code; `docs/DECISIONS.md` records the resolved D1–D5.
+**Phases 0 (scaffold) and 1 (domain core + frozen contracts) are complete.** The project builds
+and 37 JVM unit tests pass. Next: Phases 2–5 (engine, sinks, service, UI) — independent and
+parallelizable against the Phase 1 contracts. `MP4toMP3converter-SPEC.md` remains the **single
+source of truth**; `docs/DECISIONS.md` records the resolved D1–D5.
+
+Phase 1 froze these (in `app/src/main/java/io/github/entewurzelauskuh/mp4tomp3/`): `jobs/`
+(`ConversionJob`, `JobState`, `FailureReason`, `JobRepository`), `engine/` (`AudioConverter`,
+`ConverterResult`, `ProgressThrottler`), `output/` (`OutputSink`, `OpenOutput`, `OutputHandle`,
+`FileNaming`), `settings/` (`SettingsRepository`, `OutputTarget`, `OutputTargetSerialization`,
+`DataStoreSettingsRepository`, `InMemorySettingsRepository`). **Do not change the §6.2 contract
+shapes** — contract changes return to the orchestrator.
 
 **Pinned toolchain (2026-07-06, latest stable at scaffold time — see `gradle/libs.versions.toml`):**
 Gradle **9.5.0** (wrapper) · AGP **9.1.1** · Kotlin **2.3.21** · Compose BOM **2026.06.00** ·
