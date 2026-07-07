@@ -1,0 +1,51 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for filing a bug! Please fill in what you can — details make it far easier to fix.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Pick file '...'
+        2. Tap '...'
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device & Android version
+      placeholder: "e.g. Pixel 3a, Android 12"
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: source-file
+    attributes:
+      label: Source file details (for conversion bugs)
+      description: >
+        Container/codec if known (e.g. MP4 with AAC audio), duration, mono/stereo.
+        Please don't upload copyrighted media.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Relevant `adb logcat` output, if you have it.
+      render: shell
