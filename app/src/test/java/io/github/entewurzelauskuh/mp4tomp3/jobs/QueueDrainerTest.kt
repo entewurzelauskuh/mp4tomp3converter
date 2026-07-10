@@ -54,6 +54,7 @@ class QueueDrainerTest {
             context: Context,
             sourceUri: Uri,
             output: java.io.OutputStream,
+            options: ConversionOptions,
             onProgress: (percent: Int) -> Unit,
             isCancelled: () -> Boolean,
         ): ConverterResult {
@@ -118,6 +119,7 @@ class QueueDrainerTest {
                 context: Context,
                 sourceUri: Uri,
                 output: java.io.OutputStream,
+                options: ConversionOptions,
                 onProgress: (percent: Int) -> Unit,
                 isCancelled: () -> Boolean,
             ): ConverterResult = throw RuntimeException("boom")

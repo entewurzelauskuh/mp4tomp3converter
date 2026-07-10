@@ -48,6 +48,20 @@ class JobRepositoryTest {
         assertEquals("Holiday.mp4", repo.jobs.value.single { it.id == id }.displayName)
     }
 
+    @Test
+    fun enqueueAppliesGivenOptionsToEveryJobInTheBatch() {
+        val repo = newRepo()
+        repo.enqueue(listOf(uri(), uri()), ConversionOptions(bitrateKbps = 320))
+        assertTrue(repo.jobs.value.all { it.options.bitrateKbps == 320 })
+    }
+
+    @Test
+    fun enqueueWithoutOptionsUsesStandardDefaults() {
+        val repo = newRepo()
+        repo.enqueue(listOf(uri()))
+        assertEquals(ConversionOptions.DEFAULT_BITRATE_KBPS, repo.jobs.value.single().options.bitrateKbps)
+    }
+
     // --- FIFO draining ------------------------------------------------------------------
 
     @Test

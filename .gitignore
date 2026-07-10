@@ -35,3 +35,6 @@ google-services.json
 
 # Claude Code local (worktrees, session settings)
 .claude/
+
+# macOS Finder metadata
+.DS_Store
