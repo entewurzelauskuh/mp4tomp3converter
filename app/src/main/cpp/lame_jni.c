@@ -26,7 +26,19 @@ Java_io_github_entewurzelauskuh_mp4tomp3_engine_jni_LameEncoder_nativeInit(
         lame_set_mode(gfp, MONO);
     }
     lame_set_brate(gfp, bitrateKbps);   /* CBR */
-    lame_set_VBR(gfp, vbr_off);         /* explicitly no VBR (avoids Xing seek rewrite) */
+    lame_set_VBR(gfp, vbr_off);         /* explicitly no VBR */
+    /*
+     * Disable the Xing/Info tag frame. It defaults ON, and even for CBR LAME then writes a
+     * PLACEHOLDER "Info" header as the very first frame that the caller is meant to overwrite
+     * after flushing, via lame_get_lametag_frame() + a seek back to offset 0. Our MediaStore/SAF
+     * output stream is not seekable, so we never back-patch it — which leaves a header
+     * advertising a zero/garbage frame count. Media scanners that trust that count report a
+     * wrong (usually short) duration until a player decodes the whole stream and corrects it.
+     * Turning the tag off yields a clean headerless CBR file whose duration scanners derive
+     * correctly from the constant bitrate and file size. (A proper LAME tag would need a
+     * seekable sink — a possible future enhancement for exact duration + gapless metadata.)
+     */
+    lame_set_bWriteVbrTag(gfp, 0);
     lame_set_quality(gfp, 2);
     if (lame_init_params(gfp) < 0) {
         lame_close(gfp);
