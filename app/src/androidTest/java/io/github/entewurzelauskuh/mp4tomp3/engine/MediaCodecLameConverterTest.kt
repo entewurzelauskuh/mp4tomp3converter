@@ -52,6 +52,19 @@ class MediaCodecLameConverterTest {
         return id3 || frameSync
     }
 
+    /**
+     * True if a "Xing" or "Info" LAME-tag magic appears in the first frame's header region. The
+     * tag, when written, sits at a small fixed offset (≤ 36 bytes) after the frame sync, so
+     * scanning the first 64 bytes catches it with no risk of matching later audio data.
+     */
+    private fun hasXingOrInfoTag(bytes: ByteArray): Boolean {
+        val window = bytes.copyOfRange(0, minOf(bytes.size, 64))
+        return listOf("Xing", "Info").any { magic ->
+            val m = magic.toByteArray(Charsets.US_ASCII)
+            (0..window.size - m.size).any { i -> m.indices.all { j -> window[i + j] == m[j] } }
+        }
+    }
+
     @Test
     fun stereoAacConvertsToValidMp3() {
         val progress = mutableListOf<Int>()
@@ -61,6 +74,17 @@ class MediaCodecLameConverterTest {
         assertTrue("should produce a non-trivial amount of MP3", mp3.size > 1000)
         assertEquals("progress must be monotonic", progress.sorted(), progress)
         assertEquals("progress must reach 100", 100, progress.last())
+    }
+
+    @Test
+    fun outputHasNoXingOrInfoTagHeader() {
+        // Regression: the Xing/Info tag was left enabled (LAME's default) but never back-patched
+        // — our sink isn't seekable — so the first frame was a placeholder Info header advertising
+        // a zero frame count, making media scanners show a wrong (short) duration until playback.
+        // The engine now disables the tag, so a clean headerless CBR stream carries no such header.
+        val (result, mp3) = convert("sine_stereo_aac_3s.mp4")
+        assertEquals(ConverterResult.Success, result)
+        assertFalse("output must not carry a Xing/Info tag frame", hasXingOrInfoTag(mp3))
     }
 
     @Test

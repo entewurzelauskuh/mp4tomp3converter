@@ -23,8 +23,8 @@ android {
         applicationId = "io.github.entewurzelauskuh.mp4tomp3"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
