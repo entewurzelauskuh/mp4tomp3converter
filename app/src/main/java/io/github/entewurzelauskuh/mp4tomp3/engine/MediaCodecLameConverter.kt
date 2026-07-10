@@ -8,6 +8,7 @@ import android.media.MediaFormat
 import android.net.Uri
 import android.util.Log
 import io.github.entewurzelauskuh.mp4tomp3.engine.jni.LameEncoder
+import io.github.entewurzelauskuh.mp4tomp3.jobs.ConversionOptions
 import io.github.entewurzelauskuh.mp4tomp3.jobs.FailureReason
 import io.github.entewurzelauskuh.mp4tomp3.output.StorageErrors
 import java.io.FileNotFoundException
@@ -20,8 +21,8 @@ import java.nio.ByteOrder
  * `MediaExtractor` + `MediaCodec` to 16-bit PCM, then encode MP3 with LAME via
  * [LameEncoder]. Blocking; the service calls it off the main thread.
  *
- * Fixed engine settings (spec §6.3): CBR [BITRATE_KBPS] kbps, quality 2, source sample rate
- * and channel count (LAME resamples internally). Expected failures never throw — they return
+ * Engine settings: CBR at [ConversionOptions.bitrateKbps] (issue #6), quality 2, source sample
+ * rate and channel count (LAME resamples internally). Expected failures never throw — they return
  * [ConverterResult.Failure] with a categorised [FailureReason].
  */
 class MediaCodecLameConverter : AudioConverter {
@@ -29,6 +30,7 @@ class MediaCodecLameConverter : AudioConverter {
         context: Context,
         sourceUri: Uri,
         output: OutputStream,
+        options: ConversionOptions,
         onProgress: (percent: Int) -> Unit,
         isCancelled: () -> Boolean,
     ): ConverterResult {
@@ -82,6 +84,7 @@ class MediaCodecLameConverter : AudioConverter {
                     extractor = extractor,
                     output = output,
                     durationUs = durationUs,
+                    bitrateKbps = options.bitrateKbps,
                     onProgress = onProgress,
                     isCancelled = isCancelled,
                     setEncoder = { encoder = it },
@@ -113,6 +116,7 @@ class MediaCodecLameConverter : AudioConverter {
         extractor: MediaExtractor,
         output: OutputStream,
         durationUs: Long,
+        bitrateKbps: Int,
         onProgress: (Int) -> Unit,
         isCancelled: () -> Boolean,
         setEncoder: (LameEncoder) -> Unit,
@@ -142,7 +146,7 @@ class MediaCodecLameConverter : AudioConverter {
             }
             channels = channelCount
             pcmEncoding = encoding
-            encoder = LameEncoder(format.getInteger(MediaFormat.KEY_SAMPLE_RATE), channelCount, BITRATE_KBPS)
+            encoder = LameEncoder(format.getInteger(MediaFormat.KEY_SAMPLE_RATE), channelCount, bitrateKbps)
                 .also(setEncoder)
             return null
         }
@@ -278,7 +282,6 @@ class MediaCodecLameConverter : AudioConverter {
 
     private companion object {
         const val TAG = "MediaCodecLame"
-        const val BITRATE_KBPS = 192
         const val MAX_CHANNELS = 2
         const val TIMEOUT_US = 10_000L
         const val FLUSH_BUFFER_BYTES = 7200

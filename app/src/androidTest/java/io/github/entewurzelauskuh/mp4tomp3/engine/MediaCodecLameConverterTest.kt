@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.entewurzelauskuh.mp4tomp3.jobs.ConversionOptions
 import io.github.entewurzelauskuh.mp4tomp3.jobs.FailureReason
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,11 +38,12 @@ class MediaCodecLameConverterTest {
 
     private fun convert(
         asset: String,
+        options: ConversionOptions = ConversionOptions.Default,
         isCancelled: () -> Boolean = { false },
         onProgress: (Int) -> Unit = {},
     ): Pair<ConverterResult, ByteArray> {
         val sink = ByteArrayOutputStream()
-        val result = converter.convert(context, assetUri(asset), sink, onProgress, isCancelled)
+        val result = converter.convert(context, assetUri(asset), sink, options, onProgress, isCancelled)
         return result to sink.toByteArray()
     }
 
@@ -85,6 +87,17 @@ class MediaCodecLameConverterTest {
         val (result, mp3) = convert("sine_stereo_aac_3s.mp4")
         assertEquals(ConverterResult.Success, result)
         assertFalse("output must not carry a Xing/Info tag frame", hasXingOrInfoTag(mp3))
+    }
+
+    @Test
+    fun higherBitrateProducesLargerOutput() {
+        // Bitrate (issue #6) is honoured end-to-end: for the same CBR source, 320 kbps must yield
+        // a substantially larger file than 128 kbps.
+        val (r128, mp3128) = convert("sine_stereo_aac_3s.mp4", options = ConversionOptions(bitrateKbps = 128))
+        val (r320, mp3320) = convert("sine_stereo_aac_3s.mp4", options = ConversionOptions(bitrateKbps = 320))
+        assertEquals(ConverterResult.Success, r128)
+        assertEquals(ConverterResult.Success, r320)
+        assertTrue("320 kbps (${mp3320.size}) should exceed 128 kbps (${mp3128.size})", mp3320.size > mp3128.size)
     }
 
     @Test
