@@ -14,6 +14,16 @@
         <item quantity="other">%1$d files converted</item>
     </plurals>
 
+    <!-- Pre-conversion options screen (issue #5) -->
+    <string name="title_conversion_options">Conversion options</string>
+    <plurals name="options_file_count">
+        <item quantity="one">Ready to convert %1$d file</item>
+        <item quantity="other">Ready to convert %1$d files</item>
+    </plurals>
+    <string name="option_bitrate_title">Bitrate (kbps)</string>
+    <string name="option_bitrate_hint">Higher is better quality but a larger file. 192 is a good balance.</string>
+    <string name="action_start_conversion">Start</string>
+
     <!-- UI (Phase 5) -->
     <string name="menu_convert_file">Convert file…</string>
     <string name="menu_settings">Settings</string>

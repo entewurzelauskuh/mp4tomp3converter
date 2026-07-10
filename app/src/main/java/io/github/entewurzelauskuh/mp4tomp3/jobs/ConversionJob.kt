@@ -10,13 +10,16 @@ import android.net.Uri
  * [id], never by [sourceUri] (the repository never touches Uri's methods — see the
  * "no Android deps in jobs/ except Uri" rule in the spec).
  *
- * This type is a **frozen contract** (spec §6.2). Do not change its shape.
+ * Originally a frozen §6.2 contract; [options] was added deliberately (issue #5) as the carrier
+ * for per-conversion encoding settings. It is defaulted so existing construction stays valid — do
+ * not otherwise reorder or remove fields.
  *
  * @property id stable UUID assigned at enqueue time
  * @property sourceUri content URI of the picked `.mp4` (held opaquely)
  * @property displayName source file's display name, e.g. `"Holiday.mp4"`
  * @property state current [JobState]
  * @property createdAt wall-clock millis when the job was enqueued (for display ordering)
+ * @property options per-conversion encoding options chosen for this job (issue #5)
  */
 data class ConversionJob(
     val id: String,
@@ -24,6 +27,7 @@ data class ConversionJob(
     val displayName: String,
     val state: JobState,
     val createdAt: Long,
+    val options: ConversionOptions = ConversionOptions.Default,
 )
 
 /**

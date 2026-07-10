@@ -42,10 +42,12 @@ class JobRepository(
     private val cancelRequested: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /**
-     * Adds one [JobState.Queued] job per URI, in the given order, at the end of the queue.
+     * Adds one [JobState.Queued] job per URI, in the given order, at the end of the queue. The same
+     * [options] (chosen on the pre-conversion options screen, issue #5) apply to every job in the
+     * batch.
      * @return the new job ids in the same order.
      */
-    fun enqueue(uris: List<Uri>): List<String> {
+    fun enqueue(uris: List<Uri>, options: ConversionOptions = ConversionOptions.Default): List<String> {
         if (uris.isEmpty()) return emptyList()
         val created = uris.map { uri ->
             ConversionJob(
@@ -54,6 +56,7 @@ class JobRepository(
                 displayName = resolveDisplayName(uri),
                 state = JobState.Queued,
                 createdAt = now(),
+                options = options,
             )
         }
         _jobs.update { it + created }

@@ -82,8 +82,8 @@ class QueueDrainer(
      * branching (spec §6.4).
      */
     private fun processOpenedJob(id: String, sink: OutputSink, open: OpenOutput) {
-        val sourceUri = repository.jobs.value.firstOrNull { it.id == id }?.sourceUri
-        if (sourceUri == null) {
+        val job = repository.jobs.value.firstOrNull { it.id == id }
+        if (job == null) {
             // The job vanished (shouldn't happen for a non-terminal job) — clean up and bail.
             runCatching { open.stream.close() }
             sink.abort(open.handle)
@@ -93,8 +93,9 @@ class QueueDrainer(
         val result = try {
             converter.convert(
                 context = context,
-                sourceUri = sourceUri,
+                sourceUri = job.sourceUri,
                 output = open.stream,
+                options = job.options,
                 onProgress = { percent ->
                     repository.updateProgress(id, percent)
                     // Emit the freshly-updated job so the service can refresh the notification.

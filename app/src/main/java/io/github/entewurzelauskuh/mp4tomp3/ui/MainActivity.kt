@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -21,6 +22,7 @@ import io.github.entewurzelauskuh.mp4tomp3.App
 import io.github.entewurzelauskuh.mp4tomp3.jobs.ConversionService
 import io.github.entewurzelauskuh.mp4tomp3.ui.main.MainScreen
 import io.github.entewurzelauskuh.mp4tomp3.ui.main.MainViewModel
+import io.github.entewurzelauskuh.mp4tomp3.ui.options.ConversionOptionsScreen
 import io.github.entewurzelauskuh.mp4tomp3.ui.settings.SettingsScreen
 import io.github.entewurzelauskuh.mp4tomp3.ui.settings.SettingsViewModel
 import io.github.entewurzelauskuh.mp4tomp3.ui.theme.Mp4ToMp3Theme
@@ -47,28 +49,30 @@ class MainActivity : ComponentActivity() {
             Mp4ToMp3Theme {
                 var screen by rememberSaveable { mutableStateOf(Screen.Main) }
 
-                when (screen) {
-                    Screen.Main -> {
-                        val mainViewModel: MainViewModel = viewModel(
-                            factory = viewModelFactory {
-                                initializer {
-                                    MainViewModel(
-                                        repository = container.jobRepository,
-                                        startConversions = {
-                                            ensureNotificationPermission()
-                                            ConversionService.start(this@MainActivity)
-                                        },
-                                    )
-                                }
-                            },
-                        )
-                        MainScreen(
-                            viewModel = mainViewModel,
-                            onOpenSettings = { screen = Screen.Settings },
-                        )
-                    }
+                val mainViewModel: MainViewModel = viewModel(
+                    factory = viewModelFactory {
+                        initializer {
+                            MainViewModel(
+                                repository = container.jobRepository,
+                                startConversions = {
+                                    ensureNotificationPermission()
+                                    ConversionService.start(this@MainActivity)
+                                },
+                            )
+                        }
+                    },
+                )
+                val pendingSelection by mainViewModel.pendingSelection.collectAsStateWithLifecycle()
 
-                    Screen.Settings -> {
+                when {
+                    // A pending selection takes over the UI with the options screen (issue #5).
+                    pendingSelection != null -> ConversionOptionsScreen(
+                        fileCount = pendingSelection!!.size,
+                        onStart = mainViewModel::startConversion,
+                        onCancel = mainViewModel::cancelSelection,
+                    )
+
+                    screen == Screen.Settings -> {
                         val settingsViewModel: SettingsViewModel = viewModel(
                             factory = viewModelFactory {
                                 initializer { SettingsViewModel(container.settingsRepository) }
@@ -79,6 +83,11 @@ class MainActivity : ComponentActivity() {
                             onBack = { screen = Screen.Main },
                         )
                     }
+
+                    else -> MainScreen(
+                        viewModel = mainViewModel,
+                        onOpenSettings = { screen = Screen.Settings },
+                    )
                 }
             }
         }
