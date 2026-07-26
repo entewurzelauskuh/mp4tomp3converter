@@ -1,5 +1,6 @@
 package io.github.entewurzelauskuh.mp4tomp3.jobs
 
+import android.net.Uri
 import io.github.entewurzelauskuh.mp4tomp3.engine.AudioConverter
 import io.github.entewurzelauskuh.mp4tomp3.output.OutputSink
 import io.github.entewurzelauskuh.mp4tomp3.settings.OutputTarget
@@ -36,4 +37,11 @@ interface ConversionDependencies {
 
     /** Persisted settings; the drainer reads the current [OutputTarget] per job. */
     val settings: SettingsRepository
+
+    /**
+     * Best-effort deletion of a source [Uri] after a successful conversion; returns
+     * true if it was deleted. Commonly fails (read-only picker grant / cloud providers) — the
+     * drainer swallows failures.
+     */
+    val deleteSource: (Uri) -> Boolean
 }

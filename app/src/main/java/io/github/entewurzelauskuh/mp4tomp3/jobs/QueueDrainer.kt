@@ -37,6 +37,8 @@ class QueueDrainer(
     private val settings: SettingsRepository,
     private val context: Context,
     private val onProgress: (job: ConversionJob) -> Unit = {},
+    // Best-effort source deletion after a successful conversion; returns true if deleted.
+    private val deleteSource: (android.net.Uri) -> Boolean = { false },
 ) {
     /**
      * Drains queued jobs sequentially until [JobRepository.nextQueued] returns `null`.
@@ -121,7 +123,7 @@ class QueueDrainer(
         }
 
         when (result) {
-            is ConverterResult.Success -> finalizeSuccess(id, sink, open)
+            is ConverterResult.Success -> finalizeSuccess(job, sink, open)
 
             is ConverterResult.Failure -> {
                 runCatching { open.stream.close() }
@@ -139,16 +141,25 @@ class QueueDrainer(
      * ENOSPC maps to [FailureReason.StorageFull], anything else to [FailureReason.Unknown]
      * (spec §6.5).
      */
-    private fun finalizeSuccess(id: String, sink: OutputSink, open: OpenOutput) {
+    private fun finalizeSuccess(job: ConversionJob, sink: OutputSink, open: OpenOutput) {
         try {
             open.stream.close()
             sink.finalize(open.handle)
         } catch (t: Throwable) {
             sink.abort(open.handle)
             val reason = if (StorageErrors.isOutOfSpace(t)) FailureReason.StorageFull else FailureReason.Unknown
-            repository.markFailed(id, reason)
+            repository.markFailed(job.id, reason)
             return
         }
-        repository.markDone(id, open.humanPath)
+        // Capture a late-cancel BEFORE markDone (which clears the request): a destructive delete
+        // must not happen if the user pressed Cancel during the finalize window.
+        val cancelledLate = repository.isCancellationRequested(job.id)
+        repository.markDone(job.id, open.humanPath)
+        // Optionally delete the source after a successful conversion. Best-effort — a
+        // read-only picker grant or a cloud provider commonly refuses; never let it affect the
+        // result (the conversion already succeeded), and never on a late cancel.
+        if (job.options.deleteSourceAfter && !cancelledLate) {
+            runCatching { deleteSource(job.sourceUri) }
+        }
     }
 }

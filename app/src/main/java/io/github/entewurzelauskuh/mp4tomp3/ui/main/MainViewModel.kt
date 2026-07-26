@@ -2,40 +2,59 @@ package io.github.entewurzelauskuh.mp4tomp3.ui.main
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import io.github.entewurzelauskuh.mp4tomp3.jobs.ConversionJob
 import io.github.entewurzelauskuh.mp4tomp3.jobs.ConversionOptions
+import io.github.entewurzelauskuh.mp4tomp3.jobs.Id3Tags
 import io.github.entewurzelauskuh.mp4tomp3.jobs.JobRepository
+import io.github.entewurzelauskuh.mp4tomp3.jobs.SourceInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * ViewModel for the job-list screen (F1–F3, F8, F11). Talks only to [JobRepository]; starting
- * the background service is delegated to [startConversions] (wired in Phase 6) so the UI never
- * references the service directly.
+ * Files picked but not yet enqueued. [single] carries the probed [SourceInfo] for a **one-file**
+ * selection (resolved asynchronously); it stays null for a multi-file selection, whose per-file
+ * controls (trim/ID3/size) don't apply.
+ */
+data class PendingSelection(val uris: List<Uri>, val single: SourceInfo? = null)
+
+/**
+ * ViewModel for the job-list screen (F1–F3, F8, F11). Talks only to [JobRepository]; starting the
+ * background service is delegated to [startConversions] so the UI never references it directly.
  *
- * Picking files no longer enqueues immediately — it stages a [pendingSelection], which the host
- * shows as the pre-conversion options screen; [startConversion] commits it.
+ * Picking files stages a [pendingSelection] (shown as the pre-conversion options screen);
+ * [startConversion] commits it. For a single file, [probeSource] resolves duration + suggested tags
+ * off the main thread so the options screen can offer trim/ID3/size.
  */
 class MainViewModel(
     private val repository: JobRepository,
     private val startConversions: () -> Unit,
+    private val probeSource: (Uri) -> SourceInfo = { SourceInfo(0L, Id3Tags.None) },
 ) : ViewModel() {
     /** Jobs in repository (FIFO) order; the screen renders them newest-first. */
     val jobs: StateFlow<List<ConversionJob>> = repository.jobs
 
-    private val _pendingSelection = MutableStateFlow<List<Uri>?>(null)
+    private val _pendingSelection = MutableStateFlow<PendingSelection?>(null)
 
-    /**
-     * Files picked but not yet enqueued. While non-null, the host shows the pre-conversion options
-     * screen; [startConversion] or [cancelSelection] clears it.
-     */
-    val pendingSelection: StateFlow<List<Uri>?> = _pendingSelection.asStateFlow()
+    /** While non-null, the host shows the options screen. */
+    val pendingSelection: StateFlow<PendingSelection?> = _pendingSelection.asStateFlow()
 
     /** Picking files opens the options screen rather than enqueuing immediately. */
     fun onFilesPicked(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        _pendingSelection.value = uris
+        _pendingSelection.value = PendingSelection(uris)
+        // Per-file controls apply to a single file only; probe it off the main thread.
+        if (uris.size == 1) {
+            val uri = uris[0]
+            viewModelScope.launch(Dispatchers.IO) {
+                val info = runCatching { probeSource(uri) }.getOrNull() ?: return@launch
+                _pendingSelection.update { cur -> if (cur?.uris == uris) cur.copy(single = info) else cur }
+            }
+        }
     }
 
     /**
@@ -43,8 +62,8 @@ class MainViewModel(
      * service (F3), and dismiss the screen. No-op if nothing is pending.
      */
     fun startConversion(options: ConversionOptions) {
-        val uris = _pendingSelection.value ?: return
-        repository.enqueue(uris, options)
+        val pending = _pendingSelection.value ?: return
+        repository.enqueue(pending.uris, options)
         _pendingSelection.value = null
         startConversions()
     }
@@ -57,4 +76,7 @@ class MainViewModel(
     fun cancel(id: String) = repository.cancel(id)
 
     fun clear(id: String) = repository.clear(id)
+
+    /** Remove all finished (Done/Failed/Cancelled) jobs at once. */
+    fun clearAll() = repository.clearTerminal()
 }

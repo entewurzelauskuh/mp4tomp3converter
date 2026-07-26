@@ -96,7 +96,7 @@ class MediaCodecLameConverter : AudioConverter {
                     extractor = extractor,
                     output = output,
                     durationUs = durationUs,
-                    bitrateKbps = options.bitrateKbps,
+                    options = options,
                     onProgress = onProgress,
                     isCancelled = isCancelled,
                     setEncoder = { encoder = it },
@@ -134,19 +134,30 @@ class MediaCodecLameConverter : AudioConverter {
         extractor: MediaExtractor,
         output: OutputStream,
         durationUs: Long,
-        bitrateKbps: Int,
+        options: ConversionOptions,
         onProgress: (Int) -> Unit,
         isCancelled: () -> Boolean,
         setEncoder: (LameEncoder) -> Unit,
     ): ConverterResult {
         val sink = BufferedOutputStream(output, OUTPUT_BUFFER_BYTES) // A1: batch small MP3-frame writes
+        // ID3v2 tag is a prefix — write it before any audio frames.
+        val id3 = Id3v2.tag(options.tags)
+        if (id3.isNotEmpty()) sink.write(id3, 0, id3.size)
+
+        // Trim window: convert only [trimStartUs, trimEndUs). spanUs drives progress.
+        val trimStartUs = options.trimStartMs * 1000L
+        val trimEndUs =
+            if (options.trimEndMs == ConversionOptions.TRIM_END_FULL) Long.MAX_VALUE else options.trimEndMs * 1000L
+        val effectiveEndUs = if (trimEndUs == Long.MAX_VALUE) durationUs else trimEndUs
+        val spanUs = (effectiveEndUs - trimStartUs).coerceAtLeast(0L)
+
         val queue = ArrayBlockingQueue<PipeMsg>(QUEUE_CAPACITY)
         val pool = ConcurrentLinkedQueue<ShortArray>() // A3: recycle PCM buffers across the pipeline
         val abort = AtomicBoolean(false)
 
         val producer = Thread({
             try {
-                runProducer(decoder, extractor, queue, pool, abort, isCancelled)
+                runProducer(decoder, extractor, queue, pool, abort, isCancelled, trimStartUs, trimEndUs)
             } catch (t: Throwable) {
                 // Deliver the failure to the consumer BEFORE tripping abort — offerBlocking only
                 // enqueues while abort is clear, so setting it first would drop the terminal Error
@@ -160,6 +171,7 @@ class MediaCodecLameConverter : AudioConverter {
         val throttler = ProgressThrottler()
         var encoder: LameEncoder? = null
         var mp3Buffer = ByteArray(0)
+        var encodedAny = false // guards against a trim window that delivers no audio
         var result: ConverterResult = ConverterResult.Failure(FailureReason.Unknown)
 
         try {
@@ -192,7 +204,7 @@ class MediaCodecLameConverter : AudioConverter {
                     }
 
                     is PipeMsg.Format -> {
-                        encoder = LameEncoder(msg.sampleRate, msg.channels, bitrateKbps).also(setEncoder)
+                        encoder = LameEncoder(msg.sampleRate, msg.channels, options.bitrateKbps).also(setEncoder)
                     }
 
                     is PipeMsg.Pcm -> {
@@ -210,17 +222,19 @@ class MediaCodecLameConverter : AudioConverter {
                             abort.set(true)
                             break
                         }
+                        encodedAny = true
                         if (encoded > 0) sink.write(mp3Buffer, 0, encoded)
-                        if (durationUs > 0) {
-                            throttler.onProgress((msg.ptsUs * 100 / durationUs).toInt())?.let(onProgress)
+                        if (spanUs > 0) {
+                            val pct = ((msg.ptsUs - trimStartUs) * 100 / spanUs).toInt().coerceIn(0, 100)
+                            throttler.onProgress(pct)?.let(onProgress)
                         }
                     }
 
                     is PipeMsg.End -> {
                         val enc = encoder
-                        if (enc == null) {
-                            // End-of-stream with no encoder means no audio was decoded — a zero-byte
-                            // MP3 would otherwise be reported as a (false) success.
+                        if (enc == null || !encodedAny) {
+                            // No audio was decoded/encoded (no audio track, or a trim window that
+                            // delivered nothing) — fail rather than commit a near-empty false Success.
                             result = fail(FailureReason.Unknown, null)
                             break
                         }
@@ -271,12 +285,20 @@ class MediaCodecLameConverter : AudioConverter {
         pool: ConcurrentLinkedQueue<ShortArray>,
         abort: AtomicBoolean,
         isCancelled: () -> Boolean,
+        trimStartUs: Long,
+        trimEndUs: Long,
     ) {
         val info = MediaCodec.BufferInfo()
         var inputDone = false
         var formatSent = false
         var channels = 0
         var pcmEncoding = AudioFormat.ENCODING_PCM_16BIT
+
+        // Trim: seek to a sync sample at/just before the start. Whole output buffers
+        // before trimStartUs are dropped below (frame-granular start); input stops at trimEndUs.
+        if (trimStartUs > 0) {
+            extractor.seekTo(trimStartUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+        }
 
         // Emit the format once (from the decoder's OUTPUT format, the authoritative sample rate /
         // channel count / PCM encoding). Returns false (and enqueues an Error) if it can't be encoded.
@@ -313,12 +335,16 @@ class MediaCodecLameConverter : AudioConverter {
                 val inIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
                 if (inIndex >= 0) {
                     val inBuf = decoder.getInputBuffer(inIndex)!!
+                    // Read first, THEN read sampleTime: getSampleTime() is only reliable after a read
+                    // (or a seek) — reading it first would falsely report -1 on the un-seeked path.
                     val sampleSize = extractor.readSampleData(inBuf, 0)
-                    if (sampleSize < 0) {
+                    val sampleTime = extractor.sampleTime
+                    // Stop at the natural end (sampleSize < 0) or once past the trim end.
+                    if (sampleSize < 0 || sampleTime > trimEndUs) {
                         decoder.queueInputBuffer(inIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                         inputDone = true
                     } else {
-                        decoder.queueInputBuffer(inIndex, 0, sampleSize, extractor.sampleTime, 0)
+                        decoder.queueInputBuffer(inIndex, 0, sampleSize, sampleTime, 0)
                         extractor.advance()
                     }
                 }
@@ -338,14 +364,19 @@ class MediaCodecLameConverter : AudioConverter {
                             decoder.releaseOutputBuffer(outIndex, false)
                             return
                         }
-                        val bytesPerSample = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) 4 else 2
-                        val totalSamples = info.size / bytesPerSample
-                        val buf = takePooled(pool, totalSamples)
-                        fillPcm(decoder, outIndex, info, pcmEncoding, buf, totalSamples)
                         val ptsUs = info.presentationTimeUs
-                        decoder.releaseOutputBuffer(outIndex, false)
-                        val ch = if (channels > 0) channels else 1
-                        if (!offerBlocking(queue, PipeMsg.Pcm(buf, totalSamples / ch, ptsUs), abort)) return
+                        if (trimStartUs > 0 && ptsUs < trimStartUs) {
+                            // Decoded from the seek's sync point but before the trim start — drop it.
+                            decoder.releaseOutputBuffer(outIndex, false)
+                        } else {
+                            val bytesPerSample = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) 4 else 2
+                            val totalSamples = info.size / bytesPerSample
+                            val buf = takePooled(pool, totalSamples)
+                            fillPcm(decoder, outIndex, info, pcmEncoding, buf, totalSamples)
+                            decoder.releaseOutputBuffer(outIndex, false)
+                            val ch = if (channels > 0) channels else 1
+                            if (!offerBlocking(queue, PipeMsg.Pcm(buf, totalSamples / ch, ptsUs), abort)) return
+                        }
                     } else {
                         decoder.releaseOutputBuffer(outIndex, false)
                     }

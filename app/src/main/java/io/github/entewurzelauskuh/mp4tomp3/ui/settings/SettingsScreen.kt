@@ -1,6 +1,7 @@
 package io.github.entewurzelauskuh.mp4tomp3.ui.settings
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -15,12 +16,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -30,6 +35,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.entewurzelauskuh.mp4tomp3.R
 import io.github.entewurzelauskuh.mp4tomp3.settings.OutputTarget
+import io.github.entewurzelauskuh.mp4tomp3.ui.ShareSheet
 
 /**
  * Settings screen (F6). One setting in v1: the output folder. Launches
@@ -44,6 +50,7 @@ fun SettingsScreen(
 ) {
     val target by viewModel.outputTarget.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    BackHandler(onBack = onBack) // system Back returns to Main (parity with About/Options)
 
     val folderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -104,6 +111,32 @@ fun SettingsScreen(
                         Text(stringResource(R.string.settings_reset_default))
                     }
                 }
+            }
+
+            // Share-sheet toggle. The component's enabled state is the source of truth.
+            var shareEnabled by remember { mutableStateOf(ShareSheet.isEnabled(context)) }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_share_sheet_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_share_sheet_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = shareEnabled,
+                    onCheckedChange = {
+                        shareEnabled = it
+                        ShareSheet.setEnabled(context, it)
+                    },
+                )
             }
         }
     }

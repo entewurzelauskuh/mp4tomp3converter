@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.entewurzelauskuh.mp4tomp3.jobs.ConversionOptions
 import io.github.entewurzelauskuh.mp4tomp3.jobs.FailureReason
+import io.github.entewurzelauskuh.mp4tomp3.jobs.Id3Tags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -98,6 +99,45 @@ class MediaCodecLameConverterTest {
         assertEquals(ConverterResult.Success, r128)
         assertEquals(ConverterResult.Success, r320)
         assertTrue("320 kbps (${mp3320.size}) should exceed 128 kbps (${mp3128.size})", mp3320.size > mp3128.size)
+    }
+
+    @Test
+    fun trimProducesShorterValidMp3() {
+        // Trim: converting ~1 s of a 3 s source yields a valid, clearly smaller MP3.
+        val (fullResult, full) = convert("sine_stereo_aac_3s.mp4")
+        val (trimResult, trimmed) = convert(
+            "sine_stereo_aac_3s.mp4",
+            options = ConversionOptions(trimStartMs = 1000L, trimEndMs = 2000L),
+        )
+        assertEquals(ConverterResult.Success, fullResult)
+        assertEquals(ConverterResult.Success, trimResult)
+        assertTrue("trimmed output should be a valid MP3", isValidMp3(trimmed))
+        assertTrue("trimmed (${trimmed.size}) should be well under full (${full.size})", trimmed.size < full.size)
+    }
+
+    @Test
+    fun id3TagIsPrependedWhenTagsAreSet() {
+        // ID3: the output begins with an ID3v2 tag when tags are supplied.
+        val (result, bytes) = convert(
+            "sine_stereo_aac_3s.mp4",
+            options = ConversionOptions(tags = Id3Tags(title = "My Clip", artist = "Tester")),
+        )
+        assertEquals(ConverterResult.Success, result)
+        assertTrue("output should be a valid MP3", isValidMp3(bytes))
+        assertEquals('I'.code.toByte(), bytes[0])
+        assertEquals('D'.code.toByte(), bytes[1])
+        assertEquals('3'.code.toByte(), bytes[2])
+    }
+
+    @Test
+    fun trimWindowPastEndFailsInsteadOfEmptySuccess() {
+        // A trim window beyond the source (5–6 s of a 3 s file) delivers no audio, so it must fail —
+        // not commit a near-empty false Success (which with delete-original would lose the source).
+        val (result, _) = convert(
+            "sine_stereo_aac_3s.mp4",
+            options = ConversionOptions(trimStartMs = 5000L, trimEndMs = 6000L),
+        )
+        assertTrue("out-of-range trim should fail, got $result", result is ConverterResult.Failure)
     }
 
     @Test

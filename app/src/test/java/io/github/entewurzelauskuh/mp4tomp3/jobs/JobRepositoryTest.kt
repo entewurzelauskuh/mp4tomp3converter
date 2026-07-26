@@ -179,4 +179,18 @@ class JobRepositoryTest {
         repo.clear(b) // Running -> no-op
         assertEquals(listOf(b), repo.jobs.value.map { it.id })
     }
+
+    @Test
+    fun clearTerminalRemovesAllFinishedAndKeepsActive() {
+        val repo = newRepo()
+        val (a, b, c) = repo.enqueue(listOf(uri(), uri(), uri()))
+        repo.markRunning(a)
+        repo.markDone(a, "Music/a.mp3") // a: terminal (Done)
+        repo.markRunning(b) //             b: active (Running)
+        //                                 c: active (Queued)
+
+        repo.clearTerminal()
+
+        assertEquals(listOf(b, c), repo.jobs.value.map { it.id })
+    }
 }

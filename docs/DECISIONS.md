@@ -41,3 +41,23 @@ recommendation is declined. LGPL compliance for LAME is satisfied by:
 
 Derived from the MIT `LICENSE` copyright handle `entewurzelauskuh` (confirmed by the user as the
 GitHub handle). The Kotlin source root and `namespace` follow the same package.
+
+## 1.0.0 feature decisions (implementation, not spec §3)
+
+Smaller product choices made while implementing the 1.0.0 feature set. Recorded here so
+future contributors know the intent.
+
+- **ID3 field set → "extended".** Beyond title/artist/album we expose album artist, track,
+  genre, year, composer, disc, and a free-text comment — the fields common tag editors show — not
+  the full ID3v2.3 frame catalogue. Cover art is out of scope. Detected values are read from the
+  source via `MediaMetadataRetriever` and written as ID3v2.3 (see `engine/Id3v2`).
+- **Tag editor default → collapsed, "keep detected".** The tag fields sit behind an
+  off-by-default "Edit tags" switch. Left closed, the file's own detected tags are written; opened,
+  the edited fields are written. Keeps the common path short while staying useful.
+- **Trim fields → labelled "From"/"To", `mm:ss`, second-granular.** Typed fields are two-way
+  bound to the range slider and clamped to the clip. Labels are From/To (not Start/End) to avoid
+  colliding with the "Start" action. An end at the clip's last whole second counts as full length
+  (see `ui/options/resolveTrim`) so merely focusing the field can't shave off a sub-second tail.
+- **Delete original → best-effort, honest wording.** The document picker usually grants
+  read-only access, so deletion often can't happen; the UI says so plainly rather than implying a
+  guarantee.

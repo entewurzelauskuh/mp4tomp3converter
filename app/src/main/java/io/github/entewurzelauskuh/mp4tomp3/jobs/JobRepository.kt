@@ -98,6 +98,14 @@ class JobRepository(
         }
     }
 
+    /** Removes **all** terminal (Done/Failed/Cancelled) jobs at once; active jobs stay. */
+    fun clearTerminal() {
+        _jobs.update { list ->
+            list.filter { it.state.isTerminal() }.forEach { cancelRequested.remove(it.id) }
+            list.filterNot { it.state.isTerminal() }
+        }
+    }
+
     /** The oldest queued job (FIFO), or `null` if none are waiting. */
     fun nextQueued(): ConversionJob? = _jobs.value.firstOrNull { it.state is JobState.Queued }
 

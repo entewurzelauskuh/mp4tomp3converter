@@ -77,6 +77,65 @@ class QueueDrainerTest {
         assertEquals(listOf("open", "finalize", "open", "finalize", "open", "finalize"), sink.events)
     }
 
+    // --- delete original ---------------------------------------------------
+
+    @Test
+    fun deletesSourceAfterSuccessWhenRequested() = runTest {
+        val repo = repo()
+        val deleted = mutableListOf<Uri>()
+        repo.enqueue(listOf(uri()), ConversionOptions(deleteSourceAfter = true))
+        QueueDrainer(
+            repo,
+            FakeConverter(),
+            { RecordingSink() },
+            InMemorySettingsRepository(),
+            context,
+            deleteSource = {
+                deleted.add(it)
+                true
+            },
+        ).drainQueue()
+        assertEquals(1, deleted.size)
+    }
+
+    @Test
+    fun doesNotDeleteSourceOnFailure() = runTest {
+        val repo = repo()
+        val deleted = mutableListOf<Uri>()
+        repo.enqueue(listOf(uri()), ConversionOptions(deleteSourceAfter = true))
+        QueueDrainer(
+            repo,
+            FakeConverter(result = ConverterResult.Failure(FailureReason.Unknown)),
+            { RecordingSink() },
+            InMemorySettingsRepository(),
+            context,
+            deleteSource = {
+                deleted.add(it)
+                true
+            },
+        ).drainQueue()
+        assertTrue(deleted.isEmpty())
+    }
+
+    @Test
+    fun doesNotDeleteSourceWhenNotRequested() = runTest {
+        val repo = repo()
+        val deleted = mutableListOf<Uri>()
+        repo.enqueue(listOf(uri())) // deleteSourceAfter defaults to false
+        QueueDrainer(
+            repo,
+            FakeConverter(),
+            { RecordingSink() },
+            InMemorySettingsRepository(),
+            context,
+            deleteSource = {
+                deleted.add(it)
+                true
+            },
+        ).drainQueue()
+        assertTrue(deleted.isEmpty())
+    }
+
     @Test
     fun failureAbortsAndMarksFailed() = runTest {
         val repo = repo()

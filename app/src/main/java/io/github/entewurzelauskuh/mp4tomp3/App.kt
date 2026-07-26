@@ -1,6 +1,7 @@
 package io.github.entewurzelauskuh.mp4tomp3
 
 import android.app.Application
+import android.net.Uri
 import io.github.entewurzelauskuh.mp4tomp3.engine.AudioConverter
 import io.github.entewurzelauskuh.mp4tomp3.jobs.ConversionDependencies
 import io.github.entewurzelauskuh.mp4tomp3.jobs.JobRepository
@@ -23,4 +24,5 @@ class App :
     override val converter: AudioConverter get() = container.converter
     override val sinkProvider: (OutputTarget) -> OutputSink get() = container.sinkProvider
     override val settings: SettingsRepository get() = container.settingsRepository
+    override val deleteSource: (Uri) -> Boolean get() = container.deleteSource
 }

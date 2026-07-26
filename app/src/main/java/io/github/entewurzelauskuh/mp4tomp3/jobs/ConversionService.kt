@@ -62,6 +62,7 @@ class ConversionService : Service() {
             settings = deps.settings,
             context = applicationContext,
             onProgress = { job -> updateOngoing(job) },
+            deleteSource = deps.deleteSource,
         )
         // Whether THIS drain is responsible for stopping the service (false if it hands off to
         // another drain that re-acquired the guard).

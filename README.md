@@ -18,15 +18,22 @@ A deliberately narrow spiritual successor to
 
 ## Features
 
-- Pick one or more `.mp4` files (system document picker, multi-select) and queue them.
+- Pick one or more `.mp4` files (system document picker, multi-select) and queue them — or
+  **share** a video to the app from a gallery/file app, or tap the empty screen to pick one.
+- A quick **options screen** before each batch: choose the **bitrate** (128 / 192 / 256 / 320 kbps,
+  default 192), and for a single file **trim** to a time range (slider + typed `mm:ss` fields),
+  edit **ID3 tags** (title, artist, album, album artist, track, genre, year, composer, disc,
+  comment — pre-filled from the source), see the **estimated output size**, and optionally
+  **delete the original** after a successful convert (where the source permits).
 - Conversions run **sequentially** in the background via a foreground service, with a progress
-  notification and a Cancel action.
+  notification and a Cancel action; **Clear all** removes finished jobs in one tap.
 - Output goes to the public **Music** folder by default (visible immediately in music
   players/file managers), or to a folder you choose.
-- Fixed, sensible encoder defaults: **CBR 192 kbps**, LAME quality 2, source sample
-  rate/channels. No settings to fiddle with.
+- Sensible encoder defaults — **CBR, LAME quality 2**, source sample rate/channels — so the
+  common path is just "pick and go."
 - Clear, friendly errors (no audio track, unsupported format, surround audio, out of space, …)
   — failures never crash the app.
+- An **About** screen with build info and Contribute/Update links (browser only — no network).
 
 ## Privacy — no network, ever
 

@@ -30,6 +30,29 @@
         </activity>
 
         <!--
+          Share-sheet entry: receives videos shared from other apps. On an
+          activity-alias so a Settings toggle can enable/disable it at runtime via
+          PackageManager.setComponentEnabledSetting (ShareSheet.setEnabled). Enabled by default.
+        -->
+        <activity-alias
+            android:name=".ShareTarget"
+            android:targetActivity=".ui.MainActivity"
+            android:exported="true"
+            android:enabled="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+        </activity-alias>
+
+        <!--
           Drains the conversion queue in the background (spec §6.4). Declares BOTH FGS types;
           the runtime picks mediaProcessing (API >= 35) or dataSync (API 31-34) in code.
         -->

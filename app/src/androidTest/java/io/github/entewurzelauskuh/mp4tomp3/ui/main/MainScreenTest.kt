@@ -33,7 +33,7 @@ class MainScreenTest {
     @Test
     fun emptyStateIsShownWhenNoJobs() {
         val vm = MainViewModel(repo(), startConversions = {})
-        compose.setContent { MainScreen(viewModel = vm, onOpenSettings = {}) }
+        compose.setContent { MainScreen(viewModel = vm, onOpenSettings = {}, onOpenAbout = {}) }
         compose.onNodeWithText(str(R.string.empty_hint)).assertIsDisplayed()
     }
 
@@ -63,7 +63,7 @@ class MainScreenTest {
         assertTrue(listOf(queued).isNotEmpty())
 
         val vm = MainViewModel(repository, startConversions = {})
-        compose.setContent { MainScreen(viewModel = vm, onOpenSettings = {}) }
+        compose.setContent { MainScreen(viewModel = vm, onOpenSettings = {}, onOpenAbout = {}) }
 
         compose.onNodeWithText(str(R.string.state_queued)).assertIsDisplayed()
         compose.onNodeWithText("${str(R.string.state_converting)} 50%").assertIsDisplayed()
@@ -76,10 +76,21 @@ class MainScreenTest {
     fun overflowMenuNavigatesToSettings() {
         var opened = false
         val vm = MainViewModel(repo(), startConversions = {})
-        compose.setContent { MainScreen(viewModel = vm, onOpenSettings = { opened = true }) }
+        compose.setContent { MainScreen(viewModel = vm, onOpenSettings = { opened = true }, onOpenAbout = {}) }
 
         compose.onNodeWithContentDescription(str(R.string.cd_more_options)).performClick()
         compose.onNodeWithText(str(R.string.menu_settings)).performClick()
         assertTrue("tapping Settings should invoke onOpenSettings", opened)
+    }
+
+    @Test
+    fun overflowMenuNavigatesToAbout() {
+        var opened = false
+        val vm = MainViewModel(repo(), startConversions = {})
+        compose.setContent { MainScreen(viewModel = vm, onOpenSettings = {}, onOpenAbout = { opened = true }) }
+
+        compose.onNodeWithContentDescription(str(R.string.cd_more_options)).performClick()
+        compose.onNodeWithText(str(R.string.menu_about)).performClick()
+        assertTrue("tapping About should invoke onOpenAbout", opened)
     }
 }

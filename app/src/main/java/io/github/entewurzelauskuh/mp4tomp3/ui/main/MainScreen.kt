@@ -2,6 +2,7 @@ package io.github.entewurzelauskuh.mp4tomp3.ui.main
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ import io.github.entewurzelauskuh.mp4tomp3.ui.messageRes
 fun MainScreen(
     viewModel: MainViewModel,
     onOpenSettings: () -> Unit,
+    onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val jobs by viewModel.jobs.collectAsStateWithLifecycle()
@@ -57,6 +59,8 @@ fun MainScreen(
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris -> viewModel.onFilesPicked(uris) }
+    val launchPicker = { picker.launch(arrayOf("video/mp4")) }
+    val hasFinished = jobs.any { it.state.isTerminalState() }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -65,15 +69,17 @@ fun MainScreen(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     OverflowMenu(
-                        onConvertFile = { picker.launch(arrayOf("video/mp4")) },
+                        onConvertFile = { launchPicker() },
+                        onClearAll = if (hasFinished) ({ viewModel.clearAll() }) else null,
                         onSettings = onOpenSettings,
+                        onAbout = onOpenAbout,
                     )
                 },
             )
         },
     ) { innerPadding ->
         if (jobs.isEmpty()) {
-            EmptyState(Modifier.fillMaxSize().padding(innerPadding))
+            EmptyState(onConvert = { launchPicker() }, modifier = Modifier.fillMaxSize().padding(innerPadding))
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(innerPadding),
@@ -93,7 +99,12 @@ fun MainScreen(
 }
 
 @Composable
-private fun OverflowMenu(onConvertFile: () -> Unit, onSettings: () -> Unit) {
+private fun OverflowMenu(
+    onConvertFile: () -> Unit,
+    onClearAll: (() -> Unit)?,
+    onSettings: () -> Unit,
+    onAbout: () -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
     IconButton(onClick = { expanded = true }) {
         Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.cd_more_options))
@@ -106,6 +117,16 @@ private fun OverflowMenu(onConvertFile: () -> Unit, onSettings: () -> Unit) {
                 onConvertFile()
             },
         )
+        // "Clear all" — only when there is at least one finished job to clear.
+        if (onClearAll != null) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_clear_all)) },
+                onClick = {
+                    expanded = false
+                    onClearAll()
+                },
+            )
+        }
         DropdownMenuItem(
             text = { Text(stringResource(R.string.menu_settings)) },
             onClick = {
@@ -113,12 +134,25 @@ private fun OverflowMenu(onConvertFile: () -> Unit, onSettings: () -> Unit) {
                 onSettings()
             },
         )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.menu_about)) },
+            onClick = {
+                expanded = false
+                onAbout()
+            },
+        )
     }
 }
 
+/** Empty state: tapping anywhere launches the picker; the hint points at both options. */
 @Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+private fun EmptyState(onConvert: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clickable(onClick = onConvert)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
         Text(
             text = stringResource(R.string.empty_hint),
             style = MaterialTheme.typography.bodyLarge,
@@ -126,6 +160,9 @@ private fun EmptyState(modifier: Modifier = Modifier) {
         )
     }
 }
+
+/** Whether a job is finished (Done/Failed/Cancelled) — used to show "Clear all". */
+private fun JobState.isTerminalState(): Boolean = this is JobState.Done || this is JobState.Failed || this is JobState.Cancelled
 
 @Composable
 private fun JobRow(job: ConversionJob, onCancel: () -> Unit, onClear: () -> Unit) {
